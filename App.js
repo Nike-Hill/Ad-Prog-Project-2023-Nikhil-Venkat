@@ -21,7 +21,7 @@ export default function App() {
     <View style={styles.container}>
 
       {/*Title*/}
-      <Text>Todo List</Text>
+      <Text>Todo List test</Text>
 
     </View>
     
