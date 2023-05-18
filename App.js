@@ -1,20 +1,40 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+//Import statements
+import React, {useCallback, useRef, useState, useEffect } from "react";
+import {
+  KeyboardAvoidingView,
+  Dimensions,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  ScrollView,
+  Keyboard,
+  Animated,
+} from "react-native";
+
 
 export default function App() {
-  return (
+  {/*UI*/}
+  return  (
+      
     <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
-}
 
+      {/*Title*/}
+      <Text>Todo List</Text>
+
+    </View>
+    
+  )}
+//}
+
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#E8EAED',
   },
+
 });
+
+      
