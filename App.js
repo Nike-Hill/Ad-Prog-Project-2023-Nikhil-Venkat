@@ -15,7 +15,7 @@ import {
 
 import Task from "C:/Users/nikhi/apps/MilestoneV0000/components/Task";
 
-
+//Circular Progress Import
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 
 
@@ -46,6 +46,7 @@ export default function App() {
   {/*Task arrays & progress*/}
   const [taskItems, setTaskItems] = useState([]);
   const [completedTasks, setCompletedTasks] = useState([]);
+  //Sort Tasks by priority
   //const sortedTasks = taskItems.sort((a, b) => a.getPriority() - b.getPriority());
   const [progress, setProgress] = useState(0);
 
@@ -64,16 +65,15 @@ export default function App() {
   useEffect(() => {
     const calculateProgress = () => {
       const totalTasks = taskItems.length + completedTasks.length;
-      const completedPercentage = totalTasks > 0 ? (completedTasks.length / totalTasks) * 100 : 0;
+      //Calculate Progress by dividing tasks complete by total tasks
+      const completedPercentage = totalTasks > 0 ? (completedTasks.length / (totalTasks+1)) * 100 : 0;
       setProgress(completedPercentage);
     };
   
     calculateProgress();
   }, [taskItems, completedTasks]);
 
-  function updateScreen(){
-    setTaskItems(taskItems);
-  }
+
   
   {/*Task functions*/}
   const handleAddTask = () => {
@@ -98,6 +98,7 @@ export default function App() {
 
   };
   
+  //completeTask moves the selected task from the taskItems array to the completedTasks array
   const completeTask = (index) => {
     const itemsCopy = [...taskItems];
     const completedTask = itemsCopy.splice(index, 1);
@@ -106,7 +107,7 @@ export default function App() {
   };
   
 
-
+  //uncompleteTask moves the selected task from the completedTasks array to the taskItems array
   const uncompleteTask = (index) => {
     const itemsCopy = [...completedTasks];
     const uncompletedTask = itemsCopy.splice(index, 1);
@@ -114,12 +115,14 @@ export default function App() {
     setCompletedTasks(itemsCopy);
   }
 
+  //removeTask removes the selected task from the taskItems array
   const removeTask = (index) => {
     const itemsCopy = [...taskItems];
     itemsCopy.splice(index, 1);
     setTaskItems(itemsCopy);
   }
 
+  //removeCompleteTask removes the selected task from the completedTasks array
   const removeCompleteTask = (index) => {
     const itemsCopy = [...completedTasks];
     itemsCopy.splice(index, 1);
@@ -151,6 +154,7 @@ export default function App() {
           size={300}
           width={15}
           marginBottom={50}
+          //Use progress variable for progress
           fill={progress}
           tintColor="#56D245"
           onAnimationComplete={() => console.log("onAnimationComplete")}
@@ -183,6 +187,7 @@ export default function App() {
           <View style={styles.items}>
             {/*This is where the tasks will go*/}
             {/*Change to sorted later*/}
+            {/*Iterate through taskItems and display all tasks*/}
             {taskItems.map((item, index) => {
               return (
                 <TouchableOpacity key={index} onPress={() => completeTask(index)} onLongPress={() => removeTask(index)}>
@@ -199,6 +204,8 @@ export default function App() {
             {completedTasks.length === 0 ? null : (
               <Text style={styles.sectionTitle} paddingTop = {15} paddingBottom={30}>Completed</Text>
             ) }
+
+            {/*Iterate through completedTasks and display all tasks*/}
             {completedTasks.map((item, index) => {
               return (
                 <TouchableOpacity key={index} onPress={() => uncompleteTask(index)} onLongPress={() => removeCompleteTask(index)}>
@@ -219,6 +226,7 @@ export default function App() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.writeTaskWrapper}
             >
+              {/*Task name field*/}
               <View style = {styles.addTaskContainer}>
                 <View style={styles.inputContainer}>
                     <TextInput
@@ -266,7 +274,7 @@ const styles = StyleSheet.create({
   },
   taskWrapper: {
     paddingTop: 33,
-    paddingBottom: 230,
+    paddingBottom: 430,
     paddingHorizontal:20,
     borderRadius: 60,
     borderColor: '#C0C0C0',
