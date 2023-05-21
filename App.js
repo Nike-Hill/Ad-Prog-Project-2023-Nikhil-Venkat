@@ -18,6 +18,14 @@ import Task from "C:/Users/nikhi/apps/MilestoneV0000/components/Task";
 //Circular Progress Import
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 
+import UUIDGenerator from 'react-native-uuid-generator';
+
+//BottomSheet import
+import BottomSheet, {BottomSheetView, BottomSheetModal, BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+
+//Picker import
+import RNPickerSelect from 'react-native-picker-select';
+
 
 //Export
 export default function App() {
@@ -41,20 +49,24 @@ export default function App() {
 
   {/*Task field setters*/}
   const [task, setTask] = useState(null);
-
+  const [taskPriority, setTaskPriority] = useState(null);
+  const [metricType, setMetricType] = useState(null);
+  const [units, setUnits] = useState('');
+  const [targetUnits, setTargetUnits] = useState(null);
+  const [weightage, setWeightage] = useState(null);
 
   {/*Task arrays & progress*/}
   const [taskItems, setTaskItems] = useState([]);
   const [completedTasks, setCompletedTasks] = useState([]);
   //Sort Tasks by priority
-  //const sortedTasks = taskItems.sort((a, b) => a.getPriority() - b.getPriority());
+  const sortedTasks = taskItems.sort((a, b) => a.priority - b.priority);
   const [progress, setProgress] = useState(0);
 
   {/*Method passed to each task to update screen when user increments/decrements units complete*/}
 
   const updateUnits = (taskId, newUnits) => {
     //change to sorted later
-    setTasks(taskItems.map(task => {
+    setTask(sortedTasks.map(task => {
         if (task.id === taskId) {
             return { ...task, unitsComplete: newUnits };
         }
@@ -62,11 +74,19 @@ export default function App() {
     }));
   };
 
+  //Calculates progress whenever taskItems or completedTasks is changed.
   useEffect(() => {
     const calculateProgress = () => {
       const totalTasks = taskItems.length + completedTasks.length;
-      //Calculate Progress by dividing tasks complete by total tasks
-      const completedPercentage = totalTasks > 0 ? (completedTasks.length / (totalTasks+1)) * 100 : 0;
+      var totalWeight = 0.0;
+      var completedWeight = 0.0;
+      //Multiply completion by weightage to find the total progress made
+      completedTasks.forEach(completedWeight+=this.weightage*this.completion);
+      totalWeight+=completedWeight;
+      taskItems.forEach(totalWeight+=this.weightage*this.completion);
+
+      //Calculate Progress by dividing the tasks complete by the total tasks, adjusting both for weightage
+      const completedPercentage = totalTasks > 0 ? (completedWeight / (totalWeight)) * 100 : 0;
       setProgress(completedPercentage);
     };
   
@@ -78,19 +98,20 @@ export default function App() {
   {/*Task functions*/}
   const handleAddTask = () => {
     Keyboard.dismiss();
-    if (task) {
-      const taskWithPriority = { text: task};
-      setTaskItems([...taskItems, taskWithPriority]);
-      {/*Reset all task fields and close BottomSheet*/}
-      setTask(null);
-      //setTaskPriority(null);
-      //setUnits(null);      
-      //setTargetUnits(null);
-      //setMetricType(null);
-      //setWeightage(null);
-      inputRef.current.clear(); 
-      handleSnapPress(0);
-    
+    if (task&&taskPriority&&weightage) {
+      //UUIDGenerator.getRandomUUID().then((uuid) => {
+        const taskWithPriority = { text: task, priority: taskPriority-1, weightage: weightage}; 
+        setTaskItems([...taskItems, taskWithPriority]);
+        //Reset all task fields and close BottomSheet
+        setTask(null);
+        setTaskPriority(null);
+        //setUnits(null);      
+        //setTargetUnits(null);
+        //setMetricType(null);
+        setWeightage(null);
+        inputRef.current.clear(); 
+        handleSnapPress(0);
+      //});
     {/*Notify user if they didn't fill out all fields*/}
     } else{
       alert("Please fill out all fields");
@@ -188,13 +209,15 @@ export default function App() {
             {/*This is where the tasks will go*/}
             {/*Change to sorted later*/}
             {/*Iterate through taskItems and display all tasks*/}
-            {taskItems.map((item, index) => {
+            {sortedTasks.map((item, index) => {
               return (
                 <TouchableOpacity key={index} onPress={() => completeTask(index)} onLongPress={() => removeTask(index)}>
                   <Task
                       key={item.id}
                       id={item.id}
                       text={item.text}
+                      priority={item.priority}
+                      weightage={item.weightage}
                   />
                 </TouchableOpacity>
               );
@@ -209,7 +232,7 @@ export default function App() {
             {completedTasks.map((item, index) => {
               return (
                 <TouchableOpacity key={index} onPress={() => uncompleteTask(index)} onLongPress={() => removeCompleteTask(index)}>
-                  <Task text={item.text}  complete={true}/>
+                  <Task text={item.text} priority={item.priority} weightage={item.weightage} complete={true}/>
                 </TouchableOpacity>
               );
             })}
@@ -220,7 +243,19 @@ export default function App() {
       {/*Write a task*/}
 
       {/*Bottom Sheet View*/}
-
+      <BottomSheet
+        ref={sheetRef}
+        snapPoints={snapPoints}
+        //enablePanDownToClose={true}
+          //Set tracking variable for stqate of bottomsheet to false
+        onClose={() => setBottomSheetIsOpen(false)}
+        handleStyle={transparentHandleStyle}       
+      >
+        {/*BottomSheet with add task menu*/}
+        <BottomSheetView
+            style={styles.bottomSheetContentContainer}
+            backgroundColor='#c0c0c2'
+        >
             <Text style={styles.addTaskTitle}>Add Task</Text>
             <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -237,17 +272,44 @@ export default function App() {
                     onChangeText={text => setTask(text)}
                     />
                     <TouchableOpacity onPress={() => handleAddTask()}>
-                    <View style={styles.addWrapper}>
-                        <Text style={styles.addText}>+</Text>
-                    </View>
+                      <View style={styles.addWrapper}>
+                          <Text style={styles.addText}>+</Text>
+                      </View>
                     </TouchableOpacity>
                 </View>
-              </View>
+                <View style={styles.whiteRoundedBox}>
+                  <Text style={styles.pickerLabel}>Priority:</Text>
+                  <RNPickerSelect
+                    style={styles.picker}
+                    value={taskPriority}
+                    onValueChange={(value) => setTaskPriority(value)}
+                    items={[
+                      { label: 'Critical', value: 1 },
+                      { label: 'High Priority', value: 2 },
+                      { label: 'Medium Priority', value: 3 },
+                      { label: 'Low Priority', value: 4 },
+                      { label: 'Optional', value: 5 },
+                    ]}
+                    placeholder={{ label: 'Select Priority', value: null }}
+                  />
+                </View>
 
+                <View style={styles.whiteRoundedBox}>
+                    <Text style={styles.addTaskSubheading}>Weightage: </Text>
+                    <RNPickerSelect
+                      style={pickerSelectStyles}
+                      value={weightage}
+                      onValueChange={(value) => setWeightage(value)}
+                      items={[...Array(100)].map((_, i) => ({ label: `${100 - i}%`, value: 100 - i }))}
+                      placeholder={{ label: 'Select', value: null }}
+
+                    />
+                </View>
+              </View>
             </KeyboardAvoidingView>
 
-            
-
+          </BottomSheetView>
+      </BottomSheet>
 
 
 

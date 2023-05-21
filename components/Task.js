@@ -12,16 +12,16 @@ var units = "units";
 var targetUnits = 1.0;
 var completion = 0.0;
 var unitsComplete = 0;
+var priority = 2;
+var priorityText = "Medium Priority";
+var weightage = 5;
 
-complete = completion >= 1.0;
+complete = (completion >= 1.0);
 
 //colors
 var blue = '#55BCF6';
 var green = '#56D245';
 
-function getPriority(){
-    return "priority";
-}
 
 
 
@@ -31,24 +31,24 @@ function getPriority(){
 const Task = (props) => {
     var taskName = "Task";
     const [tempCompletion, setCompletion] = useState(0.0);
-    const [testUnitsComplete, setUnitsComplete] = useState(0);
+    const [tempUnitsComplete, setUnitsComplete] = useState(0);
 
     // Task fields
     taskName = props.text;
     priority = props.priority;
+    weightage = props.weightage;
     metric = props.metric;
     units = props.units;
     targetUnits = props.targetUnits;
     useEffect(async () => {
         await setCompletion(props.unitsComplete / props.targetUnits)
-            completion =testCompletion;
+            completion =tempCompletion;
         await setUnitsComplete(props.unitsComplete || 0)
-            unitsComplete =testUnitsComplete;
+            unitsComplete =tempUnitsComplete;
       }, [props.unitsComplete, props.targetUnits]);
       
   
     // Priority-related variables
-    let priorityText = "(Medium Priority)";
     let priorityColor = "#FF9900";
   
     const handleAdd = () => {
@@ -66,6 +66,7 @@ const Task = (props) => {
     {/*Update fields from passed props*/}
     taskName = props.text;
     priority = props.priority;
+    weightage = props.weightage;
 
     metric = props.metric;
 
@@ -77,30 +78,35 @@ const Task = (props) => {
     {/*Set priority text and color based on priority level*/}
     switch (priority){
         case 0:
-            priorityText = "(Critical)";
-            priorityColor = '#FF0000';            
+            priorityText = "Critical";
+            priorityColor = '#FF0000';   
             break;
 
         case 1:
-            priorityText = "(High Priority)";
+            priorityText = "High Priority";
             priorityColor = '#FF4300';
             break;
 
         case 2:
-            priorityText = "(Medium Priority)";
+            priorityText = "Medium Priority";
             priorityColor = '#FF9900';
             break;
 
         case 3:
-            priorityText = "(Low Priority)";
+            priorityText = "Low Priority";
             priorityColor = '#FFDD00';
             break;
     
         case 4:
-            priorityText = "(Optional)";
+            priorityText = "Optional";
             priorityColor = '#97FF00';
             break;
-        }
+    }
+
+    const getPriority = () => {
+        return priority;
+      }
+
     {/*complete = props.complete || false; // set the complete variable based on the complete prop, or default to false*/}
 
     //UI
@@ -111,7 +117,7 @@ const Task = (props) => {
                     <View style={styles.contentRow}>
                         <View style={styles.square}></View>
                         <Text style={styles.itemText}>{taskName.substring(0, 12)}</Text>
-                        <Text style={styles.priorityText(priorityColor)}>  {priorityText}</Text>
+                        <Text style={styles.priorityText(priorityColor)}>  {'('+priorityText+', '+weightage+'%)'}</Text>
                     </View>
                     {metric === "incremental" && complete === false &&(
                         <View style={styles.contentRow}>
