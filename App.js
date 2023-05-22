@@ -81,11 +81,26 @@ export default function App() {
       var totalWeight = 0.0;
       var completedWeight = 0.0;
       //Multiply completion by weightage to find the total progress made
-      completedTasks.forEach(completedWeight+=this.weightage*this.completion);
+      completedTasks.forEach(task => {
+        completedWeight += (task.weightage);
+      });
       totalWeight+=completedWeight;
-      taskItems.forEach(totalWeight+=this.weightage*this.completion);
+      taskItems.forEach(task => {
+        console.log('task.weightage:', task.weightage, typeof task.weightage);
+        console.log('task.completion:', task.completion, typeof task.completion);
+        console.log('completedWeight:', completedWeight, typeof completedWeight);
+
+        totalWeight += (task.weightage);
+        completedWeight += (task.weightage*task.completion);
+      });
+      
+      
 
       //Calculate Progress by dividing the tasks complete by the total tasks, adjusting both for weightage
+      console.log("Progress:");
+      console.log("Completed(weighted): " + completedWeight);
+      console.log("Total(weighted): " + totalWeight);
+
       const completedPercentage = totalTasks > 0 ? (completedWeight / (totalWeight)) * 100 : 0;
       setProgress(completedPercentage);
     };
@@ -98,16 +113,17 @@ export default function App() {
   {/*Task functions*/}
   const handleAddTask = () => {
     Keyboard.dismiss();
-    if (task&&taskPriority&&weightage) {
+    if (task&&taskPriority&& metricType && weightage && !(metricType==="incremental" && (!units || !targetUnits))) {
       //UUIDGenerator.getRandomUUID().then((uuid) => {
-        const taskWithPriority = { text: task, priority: taskPriority-1, weightage: weightage}; 
+        const taskWithPriority = { text: task, priority: taskPriority-1, metric: metricType, units: units, targetUnits: targetUnits, weightage: weightage, completion: 0.0};
+        console.log(taskWithPriority);
         setTaskItems([...taskItems, taskWithPriority]);
         //Reset all task fields and close BottomSheet
         setTask(null);
         setTaskPriority(null);
-        //setUnits(null);      
-        //setTargetUnits(null);
-        //setMetricType(null);
+        setUnits(null);      
+        setTargetUnits(null);
+        setMetricType(null);
         setWeightage(null);
         inputRef.current.clear(); 
         handleSnapPress(0);
@@ -218,6 +234,10 @@ export default function App() {
                       text={item.text}
                       priority={item.priority}
                       weightage={item.weightage}
+                      units={item.units}
+                      metric={item.metric}
+                      targetUnits={item.targetUnits}
+                      completion={item.completion}
                   />
                 </TouchableOpacity>
               );
@@ -232,7 +252,17 @@ export default function App() {
             {completedTasks.map((item, index) => {
               return (
                 <TouchableOpacity key={index} onPress={() => uncompleteTask(index)} onLongPress={() => removeCompleteTask(index)}>
-                  <Task text={item.text} priority={item.priority} weightage={item.weightage} complete={true}/>
+                  <Task                       key={item.id}
+                      id={item.id}
+                      text={item.text}
+                      priority={item.priority}
+                      weightage={item.weightage}
+                      units={item.units}
+                      metric={item.metric}
+                      targetUnits={item.targetUnits}
+                      completion={item.completion}
+                      complete={true}
+                  />
                 </TouchableOpacity>
               );
             })}
@@ -255,6 +285,7 @@ export default function App() {
         <BottomSheetView
             style={styles.bottomSheetContentContainer}
             backgroundColor='#c0c0c2'
+            padding={10}
         >
             <Text style={styles.addTaskTitle}>Add Task</Text>
             <KeyboardAvoidingView
@@ -264,37 +295,91 @@ export default function App() {
               {/*Task name field*/}
               <View style = {styles.addTaskContainer}>
                 <View style={styles.inputContainer}>
-                    <TextInput
-                    ref={inputRef}
-                    style={styles.input}
-                    placeholder={'Write a task'}
-                    value={task}
-                    onChangeText={text => setTask(text)}
-                    />
-                    <TouchableOpacity onPress={() => handleAddTask()}>
-                      <View style={styles.addWrapper}>
-                          <Text style={styles.addText}>+</Text>
-                      </View>
-                    </TouchableOpacity>
-                </View>
-                <View style={styles.whiteRoundedBox}>
-                  <Text style={styles.pickerLabel}>Priority:</Text>
-                  <RNPickerSelect
-                    style={styles.picker}
-                    value={taskPriority}
-                    onValueChange={(value) => setTaskPriority(value)}
-                    items={[
-                      { label: 'Critical', value: 1 },
-                      { label: 'High Priority', value: 2 },
-                      { label: 'Medium Priority', value: 3 },
-                      { label: 'Low Priority', value: 4 },
-                      { label: 'Optional', value: 5 },
-                    ]}
-                    placeholder={{ label: 'Select Priority', value: null }}
+                  <TextInput
+                  ref={inputRef}
+                  style={styles.input}
+                  placeholder={'Write a task'}
+                  value={task}
+                  width={'80%'}
+                  onChangeText={text => setTask(text)}
                   />
+                  <TouchableOpacity onPress={() => handleAddTask()}>
+                    <View style={styles.addWrapper}>
+                        <Text style={styles.addText}>+</Text>
+                    </View>
+                  </TouchableOpacity>
+              </View>
+              <View style={styles.whiteRoundedBox}>
+                {/*Priority picker, each priority corresponds to a numerical value that is used to sort the tasks when displayed*/}
+                <Text style={styles.pickerLabel}>Priority:</Text>
+                <RNPickerSelect
+                  style={styles.picker}
+                  value={taskPriority}
+                  onValueChange={(value) => setTaskPriority(value)}
+                  items={[
+                    { label: 'Critical', value: 1 },
+                    { label: 'High Priority', value: 2 },
+                    { label: 'Medium Priority', value: 3 },
+                    { label: 'Low Priority', value: 4 },
+                    { label: 'Optional', value: 5 },
+                  ]}
+                  placeholder={{ label: 'Select Priority', value: null }}
+                />
+              </View>
+
+
+                <View style={styles.addTaskMenuRow}>
+                  <Text style={styles.addTaskSubheading}>Metric Type:</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.metricTypeBubble,
+                      metricType === 'boolean' ? styles.metricTypeBubbleSelected : {},
+                    ]}
+                    onPress={() => {setMetricType("boolean")}}>
+                    <Text>True/False</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.metricTypeBubble,
+                      metricType === 'incremental' ? styles.metricTypeBubbleSelected : {},
+                    ]}
+                    onPress={() => {setMetricType("incremental")}}>
+                    <Text>Incremental</Text>
+                  </TouchableOpacity>
                 </View>
 
-                <View style={styles.whiteRoundedBox}>
+                <View style={styles.addTaskMenuRow}>
+                  
+                  {/*If the metric type is incremental, the user will be able to set the amount and type of units.*/}
+                  {metricType === "incremental" && (
+                    <>
+                      <View style={styles.whiteRoundedBox}>
+
+                        <Text style={styles.addTaskSubheading}>Goal: </Text>
+
+                        <RNPickerSelect
+                          style={pickerSelectStyles}
+                          value={targetUnits}
+                          onValueChange={(value) => setTargetUnits(value)}
+                          items={[...Array(300)].map((_, i) => ({ label: `${i + 1}`, value: i + 1 }))} 
+                          placeholder={{ label: 'Amount', value: null }}
+
+                        />
+                        <TextInput
+                          style={styles.unitsInput}
+                          maxWidth={'34%'}
+                          placeholder="Units"
+                          onChangeText={(text) => setUnits(text)}
+                          value={units}
+                        />
+                      </View>
+
+                    
+
+                    </>
+                  )}
+
+                  <View style={styles.whiteRoundedBox}>
                     <Text style={styles.addTaskSubheading}>Weightage: </Text>
                     <RNPickerSelect
                       style={pickerSelectStyles}
@@ -304,6 +389,8 @@ export default function App() {
                       placeholder={{ label: 'Select', value: null }}
 
                     />
+                  </View>
+              
                 </View>
               </View>
             </KeyboardAvoidingView>
