@@ -150,16 +150,13 @@ export default function App() {
   
 
   const completeTasks = () => {
-    const itemsCopy = [...taskItems];
-    taskItems.forEach(task=>{
-      if(task.complete==true){
-        const completedTask = itemsCopy.splice(items.indexOf(task), 1);
-        setCompletedTasks([...completedTasks, ...completedTask]);
-        setTaskItems(itemsCopy);
-      }
-    });
+    const itemsCopy = taskItems.filter(task => !task.complete);
+    const completedTasksCopy = [...completedTasks, ...taskItems.filter(task => task.complete)];
 
-  };
+    setTaskItems(itemsCopy);
+    setCompletedTasks(completedTasksCopy);
+};
+
 
   //uncompleteTask moves the selected task from the completedTasks array to the taskItems array
   const uncompleteTask = (index) => {
