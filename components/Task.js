@@ -1,6 +1,7 @@
 //Imports
 import React, {useState, useEffect} from 'react';
 import { View, Text, StyleSheet, TouchableOpacity} from 'react-native';
+import TextTicker from 'react-native-text-ticker'
 
 
 
@@ -10,13 +11,10 @@ var taskName = "Task";
 var metric = "boolean";
 var units = "units";
 var targetUnits = 1.0;
-var unitsComplete = 0.0;
-var completion = 0.0;
 var priority = 2;
 var priorityText = "Medium Priority";
 var weightage = 5;
 
-complete = false;
 
 //colors
 var blue = '#55BCF6';
@@ -29,8 +27,13 @@ var green = '#56D245';
 //Task constant
 const Task = (props) => {
     var taskName = "Task";
+    const [unitsComplete,setUnitsComplete] = useState(0);
+    const [completion, setCompletion] = useState(0);
+    const [complete,setComplete] = useState(false);
+    
+    var id = "";
+
     //const [tempCompletion, setCompletion] = useState(0.0);
-    const [tempUnitsComplete, setUnitsComplete] = useState(0);
 
     
 
@@ -41,16 +44,22 @@ const Task = (props) => {
     metric = props.metric;
     units = props.units;
     targetUnits = props.targetUnits;
-    completion=props.completion;
+    setComplete(props.complete);
+    updateUnits = props.updateUnits;
+    id = props.id;
+
+
+    //completion=props.completion;
     useEffect(()=>{
         //completion =(props.unitsComplete / props.targetUnits);
         //unitsComplete =(props.unitsComplete || 0);
       }, [props.unitsComplete, props.targetUnits]);
     
+    //Calculates completion whenever unitsComplete or targetUnits is modified.
     useEffect(() => {
         const calculateProgress = () => {
         const completedPercentage = unitsComplete/targetUnits;
-        completion=(completedPercentage);
+        setCompletion(completedPercentage);
         };
     
         calculateProgress();
@@ -58,32 +67,34 @@ const Task = (props) => {
   
     // Priority-related variables
     let priorityColor = "#FF9900";
-  
-    const handleAdd = () => {
-    console.log("changed units complete from " + unitsComplete+" to ");
-      unitsComplete=(unitsComplete + 1.0);
-      //props.onUpdateUnits(props.id, unitsComplete + 1.0);
-      console.log( unitsComplete);
 
+    const handleAdd = () => {
+        const newUnitsComplete = unitsComplete + 1.0;
+        console.log("changed units complete from " + unitsComplete+" to ");
+        setUnitsComplete(newUnitsComplete);
+        updateUnits(complete, targetUnits, newUnitsComplete, setComplete, setUnitsComplete);
     };
+    
   
     const handleSubtract = () => {
-    console.log("changed units complete from " + unitsComplete+" to ");
-      if (unitsComplete >= 1) {
-        unitsComplete=(unitsComplete - 1.0);
-       // props.onUpdateUnits(props.id, unitsComplete - 1.0);
-       console.log(unitsComplete);
-      }
-
-
+        const newUnitsComplete = unitsComplete - 1.0;
+        console.log("changed units complete from " + unitsComplete+" to ");
+        if (newUnitsComplete >= 0) {
+            setUnitsComplete(newUnitsComplete);
+            updateUnits(complete, targetUnits, newUnitsComplete, setComplete, setUnitsComplete);
+        }
     };
+
+
+    
 
     {/*Update fields from passed props*/}
     taskName = props.text;
     priority = props.priority;
     weightage = props.weightage;
-
+    setComplete(props.complete);
     metric = props.metric;
+    updateUnits = props.updateUnits;
 
     console.log("metric: " + metric);
     console.log("units complete: " +unitsComplete);
@@ -131,30 +142,83 @@ const Task = (props) => {
 
     //UI
     return (
-        <View style={styles.item}>
+        <><View style={styles.item}>
             <View style={styles.itemLeft}>
-                <View style={styles.contentColumn}>
-                    <View style={styles.contentRow}>
-                        <View style={styles.square}></View>
-                        <Text style={styles.itemText}>{taskName.substring(0, 12)}</Text>
-                        <Text style={styles.priorityText(priorityColor)}>  {'('+priorityText+', '+weightage+'%)'}</Text>
+                <View style={styles.contentRow}>
 
-                        {(metric == ("incremental") && complete==false) &&(
+                    <View style={styles.square}></View>
 
-                            <><Text style={styles.unitsText}>
-                                {unitsComplete}/{targetUnits} {units}
-                            </Text><TouchableOpacity onPress={handleSubtract}>
-                                    <Text style={styles.buttonText}>-</Text>
-                                </TouchableOpacity><TouchableOpacity onPress={handleAdd}>
-                                    <Text style={styles.buttonText}>+</Text>
-                                </TouchableOpacity></>
+                    <View style={styles.contentColumn}>
+
+                        <View style={styles.contentRow}>
+                            <TextTicker
+                                minWidth={'40%'}
+
+                                maxWidth={'40%'}
+                                duration={500+200*(taskName.length)}
+                                animationType={'scroll'}
+                                //loop
+                                style={styles.itemText}
+                                repeatSpacer={0}
+                                marqueeDelay={0}
+                                ellipsizeMode={'clip'}
+                            >
+                            {taskName.length<=12 ? `${taskName}                                     `: ` ${taskName}                                     ${taskName}                                     ${taskName}                                     `}
+
+                            </TextTicker>
+
+                            <TextTicker
+
+                                duration={3000}
+                                animationType={'auto'}
+                                loop={true}
+                                bounce={true}
+
+                                ellipsizeMode={'clip'}
+                                repeatSpacer={0}
+                                marqueeDelay={0}
+                                style={styles.priorityText(priorityColor)}
+                            >
+                                {'(' + priorityText + ', ' + weightage + '%)'}
+
+                            </TextTicker>
+                        </View>
+
+                        {/*If the metric is incremental and the task is incomplete, the user will be able to change the amount of units complete/*/}
+                        {(metric == ("incremental") && complete == false) && (
+
+                            <>
+                                <View style={styles.contentRow}>
+
+                                    <Text style={styles.unitsText}>
+                                        {unitsComplete}/{targetUnits} {units}
+                                    </Text>
+
+
+                                    <View style={styles.whiteRoundedBox}>
+                                        <TouchableOpacity style={styles.circularButton} onPress={handleSubtract}>
+                                            <Text style={styles.buttonText}>-</Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity style={styles.circularButton} onPress={handleAdd}>
+                                            <Text style={styles.buttonText}>+</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+
+
+                                </View>
+                            </>
                         )}
+
                     </View>
-          
+                    <View style={[styles.circular, { borderColor: (complete ? green : blue) }]}></View>
+
                 </View>
+
             </View>
-            <View style={[styles.circular, {borderColor: (complete ? green : blue)}]}></View>
-        </View>
+        </View></>
+    
     )
 }
 
@@ -170,11 +234,45 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         marginBottom: 20,
     },
+
+    whiteRoundedBox: {
+        backgroundColor: '#FFF',
+        borderRadius: 60,
+        borderWidth: 1,
+        borderColor: '#C0C0C0',
+        padding: 4,
+        marginTop: 10,
+        marginBottom: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginLeft: '12%',
+
+      },
+
+    itemText: {
+        fontSize:14,
+        fontWeight: 'bold',
+    },
+
     itemLeft: {
         flexDirection: 'row',
         alignItems: 'center',
         flexWrap: 'wrap',      
     },
+
+    circularButton: {
+        width: 25,
+        height: 25,
+        backgroundColor: '#FFF',
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderColor: '#C0C0C0',
+        borderWidth: 1,
+        marginHorizontal: 2,
+      },
+
     square: {
         width: 24,
         height: 24,
@@ -192,26 +290,46 @@ const styles = StyleSheet.create({
         borderColor: blue,
         borderWidth: 2,
         borderRadius: 5,
+        
     },
 
     priorityText: (color) => ({
         fontSize: 12,
         color: color,
+        fontWeight: "700",
     }),
 
     contentColumn: {
         flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+
     },
     contentRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-around',
+    },
+    incrementalRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     buttonText: {
         fontSize: 18,
-        paddingHorizontal: 10,
+        fontWeight: "900",
+        marginBottom: 3,
+        marginStart: 1,
+
     },
+
+    unitsText: {
+        fontSize: 12,
+        fontWeight: "700",
+        width: '55%',
+    }
     
-});
+});  
 
 //Export
 export default Task;

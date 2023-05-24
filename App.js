@@ -48,7 +48,7 @@ export default function App() {
 
 
   {/*Task field setters*/}
-  const [task, setTask] = useState(null);
+  const [task, setTask] = useState('');
   const [taskPriority, setTaskPriority] = useState(null);
   const [metricType, setMetricType] = useState(null);
   const [units, setUnits] = useState('');
@@ -64,47 +64,50 @@ export default function App() {
 
   {/*Method passed to each task to update screen when user increments/decrements units complete*/}
 
-  const updateUnits = (taskId, newUnits) => {
-    //change to sorted later
-    setTask(sortedTasks.map(task => {
-        if (task.id === taskId) {
-            return { ...task, unitsComplete: newUnits };
-        }
-        return task;
-    }));
+  const calculateProgress = () => {
+    const totalTasks = taskItems.length + completedTasks.length;
+    var totalWeight = 0.0;
+    var completedWeight = 0.0;
+    //Multiply completion by weightage to find the total progress made
+    completedTasks.forEach(task => {
+      completedWeight += (task.weightage);
+    });
+    totalWeight+=completedWeight;
+    taskItems.forEach(task => {
+      console.log('taskName:', task.taskName, typeof task.taskName);
+      console.log('task.weightage:', task.weightage, typeof task.weightage);
+      console.log('task.completion:', task.completion, typeof task.completion);
+      console.log('completedWeight:', completedWeight, typeof completedWeight);
+      console.log("----------------------------------------------------------");
+      console.log("                                                           ");
+
+      totalWeight += (task.weightage);
+      completedWeight += (task.weightage*task.completion);
+    });
+    
+    
+
+    //Calculate Progress by dividing the tasks complete by the total tasks, adjusting both for weightage
+    console.log("Progress:");
+    console.log("Completed(weighted): " + completedWeight);
+    console.log("Total(weighted): " + totalWeight);
+
+    const completedPercentage = totalTasks > 0 ? (completedWeight / (totalWeight)) * 100 : 0;
+    setProgress(completedPercentage);
   };
+
+  
+  const updateUnits = (complete, targetUnits, unitsComplete, setComplete,setUnitsComplete) => {
+    //change to sorted later
+    if(unitsComplete>=targetUnits){
+      setComplete(true);
+    }
+    completeTasks();
+  };
+
 
   //Calculates progress whenever taskItems or completedTasks is changed.
   useEffect(() => {
-    const calculateProgress = () => {
-      const totalTasks = taskItems.length + completedTasks.length;
-      var totalWeight = 0.0;
-      var completedWeight = 0.0;
-      //Multiply completion by weightage to find the total progress made
-      completedTasks.forEach(task => {
-        completedWeight += (task.weightage);
-      });
-      totalWeight+=completedWeight;
-      taskItems.forEach(task => {
-        console.log('task.weightage:', task.weightage, typeof task.weightage);
-        console.log('task.completion:', task.completion, typeof task.completion);
-        console.log('completedWeight:', completedWeight, typeof completedWeight);
-
-        totalWeight += (task.weightage);
-        completedWeight += (task.weightage*task.completion);
-      });
-      
-      
-
-      //Calculate Progress by dividing the tasks complete by the total tasks, adjusting both for weightage
-      console.log("Progress:");
-      console.log("Completed(weighted): " + completedWeight);
-      console.log("Total(weighted): " + totalWeight);
-
-      const completedPercentage = totalTasks > 0 ? (completedWeight / (totalWeight)) * 100 : 0;
-      setProgress(completedPercentage);
-    };
-  
     calculateProgress();
   }, [taskItems, completedTasks]);
 
@@ -115,7 +118,7 @@ export default function App() {
     Keyboard.dismiss();
     if (task&&taskPriority&& metricType && weightage && !(metricType==="incremental" && (!units || !targetUnits))) {
       //UUIDGenerator.getRandomUUID().then((uuid) => {
-        const taskWithPriority = { text: task, priority: taskPriority-1, metric: metricType, units: units, targetUnits: targetUnits, weightage: weightage, completion: 0.0};
+        const taskWithPriority = { text: task, priority: taskPriority-1, metric: metricType, units: units, targetUnits: targetUnits, weightage: weightage, completion: 0.0, updateUnits: updateUnits};
         console.log(taskWithPriority);
         setTaskItems([...taskItems, taskWithPriority]);
         //Reset all task fields and close BottomSheet
@@ -127,6 +130,8 @@ export default function App() {
         setWeightage(null);
         inputRef.current.clear(); 
         handleSnapPress(0);
+        console.log("task added with name "+taskWithPriority.text+" and id "+taskWithPriority.id);
+
       //});
     {/*Notify user if they didn't fill out all fields*/}
     } else{
@@ -143,6 +148,18 @@ export default function App() {
     setTaskItems(itemsCopy);
   };
   
+
+  const completeTasks = () => {
+    const itemsCopy = [...taskItems];
+    taskItems.forEach(task=>{
+      if(task.complete==true){
+        const completedTask = itemsCopy.splice(items.indexOf(task), 1);
+        setCompletedTasks([...completedTasks, ...completedTask]);
+        setTaskItems(itemsCopy);
+      }
+    });
+
+  };
 
   //uncompleteTask moves the selected task from the completedTasks array to the taskItems array
   const uncompleteTask = (index) => {
@@ -238,6 +255,8 @@ export default function App() {
                       metric={item.metric}
                       targetUnits={item.targetUnits}
                       completion={item.completion}
+                      complete={false}
+                      updateUnits={updateUnits}
                   />
                 </TouchableOpacity>
               );
@@ -260,8 +279,10 @@ export default function App() {
                       units={item.units}
                       metric={item.metric}
                       targetUnits={item.targetUnits}
-                      completion={item.completion}
+                      completion={0.0}
                       complete={true}
+                      updateUnits={updateUnits}
+
                   />
                 </TouchableOpacity>
               );
@@ -413,11 +434,11 @@ const styles = StyleSheet.create({
   },
 
   titleWrapper: {
-    paddingTop:15,
+    paddingTop:54,
     paddingBottom:20,
     paddingHorizontal:20,
     backgroundColor: '#E8EAED',
-    fontSize: 30,
+    fontSize: 39,
     fontWeight: 'bold',
 
   },

@@ -5858,6 +5858,11 @@ react-native-svg@>=12.1.1, react-native-svg@>=7.0.0, react-native-svg@13.4.0:
     css-select "^5.1.0"
     css-tree "^1.1.3"
 
+react-native-text-ticker@^1.14.0:
+  version "1.14.0"
+  resolved "https://registry.npmjs.org/react-native-text-ticker/-/react-native-text-ticker-1.14.0.tgz"
+  integrity sha512-8TNGTcW43dfnCqIuXVA7F1Ny8SKGrw0pIrNS5nM7eda+6AsuPTZh3JQ2CwmSRYfsrlnS4QFrpyo5ykpI8nvtCw==
+
 react-native-uuid-generator@^6.1.1:
   version "6.1.1"
   resolved "https://registry.npmjs.org/react-native-uuid-generator/-/react-native-uuid-generator-6.1.1.tgz"
