@@ -63,6 +63,7 @@ export default function SignupScreen({ navigation }) {
           // Signed up successfully, now create a document in Firestore for the user
       
           {/*Store user data in a firestore doc*/}
+          console.log("Signed up with this uid: " + auth.currentUser.uid);
           try {
             const docRef = await addDoc(collection(firestore, "users"), {
               uid: auth.currentUser.uid,
@@ -78,7 +79,7 @@ export default function SignupScreen({ navigation }) {
         .then(() => {
           console.log("Registered");
           console.log("Registered with:", email, values.toString());
-          navigation.replace("TaskScreen");
+          navigation.replace("MainTabScreen");
         })
         .catch((error) => {
           alert(error.message);

@@ -11,9 +11,12 @@ import {
   ScrollView,
   Keyboard,
   Animated,
+  Alert,
 } from "react-native";
 
-import { auth, firestore } from '../Firebase/firebase';
+import { storage, ref, firestore, auth } from '../Firebase/firebase';
+import { collection, addDoc, serverTimestamp, getDocs, query, where, getDoc, onSnapshot } from "firebase/firestore"; 
+
 import Task from "C:/Users/nikhi/apps/MilestoneV0000/components/Task";
 
 //Circular Progress Import
@@ -30,6 +33,37 @@ import RNPickerSelect from 'react-native-picker-select';
 
 //Export
 const TaskScreen = ({navigation}) => {
+  const [user,setUser] = useState(null)
+
+  // Fetch the current user's data
+  useEffect(() => {
+    const fetchUser = async () => {
+      //Make a query in the firestore for users with the same uid as the current user (there will only be one)
+      const userQuery = query(collection(firestore, "users"), where("uid", "==", auth.currentUser.uid));
+      const querySnapshot = await getDocs(userQuery);
+      querySnapshot.forEach((doc) => {
+          console.log(`${doc.id} => ${doc.get("first")} ${doc.get("last")}`);
+      });
+  
+      if (!querySnapshot.empty) {
+          const doc = querySnapshot.docs[0];
+          const fetchedUser = {
+              id: doc.id,
+              values: {
+                  first: doc.get("first"),
+                  last: doc.get("last"),
+                  tasks: doc.get("tasks"),
+                  uid: doc.get("uid"),
+                  email: doc.get("email"),
+              },
+          };
+  
+          setUser(fetchedUser);
+      }
+  };
+      
+    fetchUser();
+  }, []);
 
     const handleSignOut = () => {
         auth
@@ -50,7 +84,7 @@ const TaskScreen = ({navigation}) => {
   const transparentHandleStyle = {
     backgroundColor: 'transparent',
   };
-  const snapPoints = ["1%", "21%", "54%"];
+  const snapPoints = ["1%", "23%", "46%"];
   const handleSnapPress = useCallback((index) => {
     sheetRef.current?.snapToIndex(index);
     setBottomSheetIsOpen(true);
@@ -138,11 +172,33 @@ const TaskScreen = ({navigation}) => {
 
   
   {/*Task functions*/}
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     Keyboard.dismiss();
     if (task&&taskPriority&& metricType && weightage && !(metricType==="incremental" && (!units || !targetUnits))) {
       //UUIDGenerator.getRandomUUID().then((uuid) => {
         const taskWithPriority = { text: task, priority: taskPriority-1, metric: metricType, units: units, targetUnits: targetUnits, weightage: weightage, unitsComplete: 0, updateUnits: updateUnits};
+        await addDoc(collection(firestore, "users", user.id, "tasks"), {
+          userId: auth.currentUser.uid,
+          cratedTime: serverTimestamp(),
+          taskName: task,
+          priority: taskPriority-1,
+          metric: metricType,
+          units: units, 
+          targetUnits: targetUnits, 
+          weightage: weightage, 
+          unitsComplete: 0, 
+        })
+        .then(() => {
+            console.log('Task Added!');
+            Alert.alert(
+              'Task Added!',
+              'Your task has been added Successfully!',
+            );
+          }
+        )
+        .catch((error)=> {
+          console.log('Something went wrong while adding your task to firestore!');
+        })
         console.log(taskWithPriority);
         setTaskItems([...taskItems, taskWithPriority]);
         //Reset all task fields and close BottomSheet
@@ -360,6 +416,7 @@ const TaskScreen = ({navigation}) => {
                     </View>
                   </TouchableOpacity>
               </View>
+              
               <View style={styles.whiteRoundedBox}>
                 {/*Priority picker, each priority corresponds to a numerical value that is used to sort the tasks when displayed*/}
                 <Text style={styles.pickerLabel}>Priority:</Text>
@@ -387,7 +444,7 @@ const TaskScreen = ({navigation}) => {
                       metricType === 'boolean' ? styles.metricTypeBubbleSelected : {},
                     ]}
                     onPress={() => {setMetricType("boolean")}}>
-                    <Text>True/False</Text>
+                    <Text style={styles.buttonText}>True/False</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[
@@ -395,7 +452,7 @@ const TaskScreen = ({navigation}) => {
                       metricType === 'incremental' ? styles.metricTypeBubbleSelected : {},
                     ]}
                     onPress={() => {setMetricType("incremental")}}>
-                    <Text>Incremental</Text>
+                    <Text style={styles.buttonText}>Incremental</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -679,8 +736,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   metricTypeBubbleSelected: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
+    backgroundColor: '#000000',
   },
   unitsInput: {
     borderWidth: 1,

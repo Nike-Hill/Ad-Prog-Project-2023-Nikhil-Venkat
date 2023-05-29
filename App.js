@@ -6,8 +6,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen from './screens/LoginScreen.js';
 import SignupScreen from './screens/SignupScreen.js';
 
-import TaskScreen from './screens/TasksScreen.js';
-//import MainTabScreen from './screens/MainTabScreen.js';
+import MainTabScreen from './screens/MainTabScreen.js';
 
 
 //create navigator
@@ -30,8 +29,8 @@ export default function App() {
         {(props) => <SignupScreen {...props} />}
         </Stack.Screen>
 
-        <Stack.Screen  options={{headerShown: false}} name="TaskScreen">
-        {(props) => <TaskScreen{...props}/>}
+        <Stack.Screen  options={{headerShown: false}} name="MainTabScreen">
+        {() => <MainTabScreen/>}
         </Stack.Screen>
 
       </Stack.Navigator>
