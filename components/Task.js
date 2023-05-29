@@ -7,13 +7,12 @@ import TextTicker from 'react-native-text-ticker'
 
 
 // Task fields
-var taskName = "Task";
 var metric = "boolean";
 var units = "units";
-var targetUnits = 1.0;
 var priority = 2;
 var priorityText = "Medium Priority";
 var weightage = 5;
+
 
 
 //colors
@@ -27,9 +26,15 @@ var green = '#56D245';
 //Task constant
 const Task = (props) => {
     var taskName = "Task";
+    const getName=()=>{return taskName};
     const [unitsComplete,setUnitsComplete] = useState(0);
+    var targetUnits = 1.0;
+
     const [completion, setCompletion] = useState(0);
     const [complete,setComplete] = useState(false);
+    const getComplete = () => {
+        return complete;
+    }
     
     var id = "";
 
@@ -44,7 +49,6 @@ const Task = (props) => {
     metric = props.metric;
     units = props.units;
     targetUnits = props.targetUnits;
-    setComplete(props.complete);
     updateUnits = props.updateUnits;
     id = props.id;
 
@@ -68,21 +72,31 @@ const Task = (props) => {
     // Priority-related variables
     let priorityColor = "#FF9900";
 
-    const handleAdd = () => {
-        const newUnitsComplete = unitsComplete + 1.0;
+
+    //Method called to increment unitsComplete
+    const handleAdd = async () => {
         console.log("changed units complete from " + unitsComplete+" to ");
-        setUnitsComplete(newUnitsComplete);
-        updateUnits(complete, targetUnits, newUnitsComplete, setComplete, setUnitsComplete);
+        const newUnitsComplete = unitsComplete + 1.0;        
+        //Call updateUnits function passed from App.js
+        updateUnits(complete, targetUnits, unitsComplete, newUnitsComplete, setComplete, setUnitsComplete, weightage);
+        await setUnitsComplete(newUnitsComplete);
+        console.log(unitsComplete);
     };
     
-  
-    const handleSubtract = () => {
-        const newUnitsComplete = unitsComplete - 1.0;
+    
+    //Method called to decrement unitsComplete
+    const handleSubtract = async () => {
         console.log("changed units complete from " + unitsComplete+" to ");
+        const newUnitsComplete = unitsComplete - 1.0;
+        //Make sure unitsComplete isn't being decremented below zero.
         if (newUnitsComplete >= 0) {
-            setUnitsComplete(newUnitsComplete);
-            updateUnits(complete, targetUnits, newUnitsComplete, setComplete, setUnitsComplete);
+            //Call updateUnits function passed from App.js
+            updateUnits(complete, targetUnits, unitsComplete, newUnitsComplete, setComplete, setUnitsComplete, weightage);
+            await setUnitsComplete(newUnitsComplete);
+            console.log(unitsComplete);
         }
+        console.log(unitsComplete);
+
     };
 
 
@@ -92,7 +106,6 @@ const Task = (props) => {
     taskName = props.text;
     priority = props.priority;
     weightage = props.weightage;
-    setComplete(props.complete);
     metric = props.metric;
     updateUnits = props.updateUnits;
 
