@@ -15,7 +15,7 @@ import {
 } from "react-native";
 
 import { storage, ref, firestore, auth } from '../Firebase/firebase';
-import { collection, addDoc, serverTimestamp, getDocs, query, where, getDoc, onSnapshot } from "firebase/firestore"; 
+import { collection, doc, updateDoc, addDoc, serverTimestamp, getDocs, query, where, getDoc, onSnapshot, orderBy } from "firebase/firestore"; 
 
 import Task from "C:/Users/nikhi/apps/MilestoneV0000/components/Task";
 
@@ -36,7 +36,7 @@ const TaskScreen = ({navigation}) => {
   const [user,setUser] = useState(null)
 
   // Fetch the current user's data
-  useEffect(() => {
+  useEffect(async () => {
     const fetchUser = async () => {
       //Make a query in the firestore for users with the same uid as the current user (there will only be one)
       const userQuery = query(collection(firestore, "users"), where("uid", "==", auth.currentUser.uid));
@@ -46,6 +46,7 @@ const TaskScreen = ({navigation}) => {
       });
   
       if (!querySnapshot.empty) {
+        //Update fetchedUser with all fields from the doc
           const doc = querySnapshot.docs[0];
           const fetchedUser = {
               id: doc.id,
@@ -57,14 +58,18 @@ const TaskScreen = ({navigation}) => {
                   email: doc.get("email"),
               },
           };
-  
+          //set the user to the fetched user
           setUser(fetchedUser);
       }
-  };
-      
-    fetchUser();
+    };
+        
+
+    await fetchUser().then(() => {
+      fetchTasks();  // call fetchTasks only after fetchUser has finished
+    });
   }, []);
 
+    //Signs user out and navigates back to log in screen
     const handleSignOut = () => {
         auth
             .signOut()
@@ -95,7 +100,7 @@ const TaskScreen = ({navigation}) => {
   {/*Task field setters*/}
   const [task, setTask] = useState('');
   const [taskPriority, setTaskPriority] = useState(null);
-  const [metricType, setMetricType] = useState(null);
+  const [metricType, setMetricType] = useState("boolean");
   const [units, setUnits] = useState('');
   const [targetUnits, setTargetUnits] = useState(null);
   const [weightage, setWeightage] = useState(null);
@@ -108,8 +113,81 @@ const TaskScreen = ({navigation}) => {
   const sortedTasks = taskItems.sort((a, b) => a.priority - b.priority);
   const [progress, setProgress] = useState(0);
 
-  {/*Method passed to each task to update screen when user increments/decrements units complete*/}
+    //This method fetches tasks from firestore
+    const fetchTasks = () => {
+      console.log("Fetching tasks...");
+      //Make a query for the user's tasks
+      const tasksCollection = collection(firestore, "users", user.id, "tasks");
+      const tasksQuery = query(tasksCollection, orderBy("createdTime", "desc"));
 
+      //Set up a listener for query
+      const unsubscribe = onSnapshot(tasksQuery, (querySnapshot) => {
+        //Fetch all of the tasks fields
+        querySnapshot.forEach((doc) => {
+          console.log(`${doc.id} => ${doc.get("taskName")} ${doc.get("metric")}`);
+        });
+
+        //Make promises for all of the fields of all of the tasks instead of fetching them normally
+        //Because it takes a small but significant amount of time to fix them.
+        const fetchedTasksPromises = querySnapshot.docChanges().map(async (change) => {
+          if (change.type === "added" || change.type === "modified") {
+            const doc = change.doc;
+            return {
+              id:doc.id,
+              createdTime: doc.get("createdTime"),
+              text: doc.get("taskName"),
+              priority: doc.get("priority"),
+              metric: doc.get("metric"),
+              units: doc.get("units"), 
+              targetUnits: doc.get("targetUnits"), 
+              weightage: doc.get("weightage"), 
+              unitsComplete: doc.get("unitsComplete"), 
+              complete: doc.get("complete"),
+              //updateUnits:updateUnits,
+              updateTask: updateTask,
+            };
+          }
+        });
+    
+        //Once all fields are fetched, update the taskItems and completedTasks arrays
+        Promise.all(fetchedTasksPromises).then((fetchedTasks) => {
+          //Filter the tasks by completion
+          const completedTasks = fetchedTasks.filter(task => task.complete);
+          const incompleteTasks = fetchedTasks.filter(task => !task.complete);    
+          setTaskItems(prevTasks => {
+            // Remove the tasks that were changed
+            const unchangedTasks = prevTasks.filter(task => !fetchedTasks.find(fetchedTask => fetchedTask.id === task.id));
+            // Then add the updated tasks
+            return [...unchangedTasks, ...incompleteTasks];
+          });
+    
+          setCompletedTasks(prevTasks => {
+            // Remove the tasks that were changed
+            const unchangedTasks = prevTasks.filter(task => !fetchedTasks.find(fetchedTask => fetchedTask.id === task.id));
+            // Then add the updated tasks
+            return [...unchangedTasks, ...completedTasks];
+          });
+            });
+      });
+    
+      return unsubscribe;
+    };
+        
+
+    //Continuously fetch tasks
+    useEffect(() => {
+      if (user) {
+        const unsubscribe = fetchTasks();
+        return () => unsubscribe(); 
+      }
+    }, [user, progress]);  //Runs when user data changes
+    
+    
+    
+
+
+    
+  //This method calculates the progress on the day's tasks, which is displayed on a circular progress indicator.
   const calculateProgress = () => {
     const totalTasks = taskItems.length + completedTasks.length;
     var totalWeight = 0.0;
@@ -120,23 +198,27 @@ const TaskScreen = ({navigation}) => {
     });
     totalWeight+=completedWeight;
     taskItems.forEach(task => {
+      /*
       console.log('taskName:', task.text, typeof task.taskName);
       console.log('task.weightage:', task.weightage, typeof task.weightage);
       console.log('task.completion:', task.completion, typeof task.completion);
       console.log('completedWeight:', completedWeight, typeof completedWeight);
       console.log("----------------------------------------------------------");
       console.log("                                                           ");
+      */
 
       totalWeight += (task.weightage);
       if(task.metric=="incremental"){
-        console.log("Adding progress of "+task.taskName+ " (Weightage " + task.weightage+", completion " +task.completion+")");
+        /*
+        console.log("Adding progress of "+task.taskName+ 
+        " (Weightage " + task.weightage+", completion " +task.completion+")");
         console.log("(unitsComplete: "+task.unitsComplete+", targetUnits: "+task.targetUnits+")");
+        */
         completedWeight += (task.weightage*task.unitsComplete/task.targetUnits);
 
       }
     });
-    
-    
+
 
     //Calculate Progress by dividing the tasks complete by the total tasks, adjusting both for weightage
     console.log("Progress:");
@@ -148,8 +230,9 @@ const TaskScreen = ({navigation}) => {
     setProgress(completedPercentage);
   };
 
-  
-  const updateUnits = async (complete, targetUnits, oldUnitsComplete, unitsComplete, setComplete,setUnitsComplete, weightage) => {
+  {/*Method passed to each task to update screen when user increments/decrements units complete*/}
+  {/*
+  const updateUnits = async (targetUnits, oldUnitsComplete, unitsComplete, setComplete, weightage) => {
     //If the incremental task is finished, set complete to true.
     if(unitsComplete>=targetUnits){
       await setComplete(true);
@@ -162,24 +245,42 @@ const TaskScreen = ({navigation}) => {
 
     setProgress(progress+(weightage*(unitsComplete-oldUnitsComplete)/targetUnits)/totalWeight*100);
   };
-
+*/}
 
   //Calculates progress whenever taskItems or completedTasks is changed.
   useEffect(() => {
     calculateProgress();
   }, [taskItems, completedTasks]);
 
+  {/*Method passed to each task to update data in firestore whenever the tasks' data is modified.*/}
+  const updateTask = async (taskId, updatedData, updatedDataString) => {
+    const taskRef = doc(firestore, "users", user.id, "tasks", taskId);
+  
+    try {
+      //Update Firestore
+      console.log('Updating task '+taskId.toString()+' with data '+updatedDataString);
+      await updateDoc(taskRef, updatedData).then(()=>fetchTasks()).then(() => {
 
+
+      })
+      console.log('Updated task '+taskId.toString()+' with data '+updatedDataString);
+      console.log('Task Updated!');
+    } catch (error) {
+      console.error("Error updating task: ", error);
+    }
+  }
+  
   
   {/*Task functions*/}
+
+  //This method adds the new task to the Firestore if the
   const handleAddTask = async () => {
     Keyboard.dismiss();
     if (task&&taskPriority&& metricType && weightage && !(metricType==="incremental" && (!units || !targetUnits))) {
       //UUIDGenerator.getRandomUUID().then((uuid) => {
-        const taskWithPriority = { text: task, priority: taskPriority-1, metric: metricType, units: units, targetUnits: targetUnits, weightage: weightage, unitsComplete: 0, updateUnits: updateUnits};
+
         await addDoc(collection(firestore, "users", user.id, "tasks"), {
-          userId: auth.currentUser.uid,
-          cratedTime: serverTimestamp(),
+          createdTime: serverTimestamp(),
           taskName: task,
           priority: taskPriority-1,
           metric: metricType,
@@ -187,30 +288,29 @@ const TaskScreen = ({navigation}) => {
           targetUnits: targetUnits, 
           weightage: weightage, 
           unitsComplete: 0, 
+          complete: false,
         })
         .then(() => {
             console.log('Task Added!');
             Alert.alert(
               'Task Added!',
-              'Your task has been added Successfully!',
+              'Your task \''+task+'\' has been added Successfully!',
             );
           }
-        )
+        ).then(()=>fetchTasks())
         .catch((error)=> {
           console.log('Something went wrong while adding your task to firestore!');
         })
-        console.log(taskWithPriority);
-        setTaskItems([...taskItems, taskWithPriority]);
+        //setTaskItems([...taskItems, taskWithPriority]);
         //Reset all task fields and close BottomSheet
         setTask(null);
         setTaskPriority(null);
         setUnits(null);      
         setTargetUnits(null);
-        setMetricType(null);
+        setMetricType("boolean");
         setWeightage(null);
         inputRef.current.clear(); 
         handleSnapPress(0);
-        console.log("task added with name "+taskWithPriority.text+" and id "+taskWithPriority.id);
 
       //});
     {/*Notify user if they didn't fill out all fields*/}
@@ -274,7 +374,7 @@ const TaskScreen = ({navigation}) => {
     <View style={styles.container}>
 
       {/*Title*/}
-      <Text style= {styles.titleWrapper}>Todo List</Text>
+      <Text style= {styles.titleWrapper}>{user ? "Hi "+user.values.first+"!" : "Your Tasks: "}</Text>
 
       <ScrollView> 
         {/*Today's Tasks*/}
@@ -321,7 +421,7 @@ const TaskScreen = ({navigation}) => {
                 {/*Iterate through taskItems and display all tasks*/}
                 {sortedTasks.map((item, index) => {
                 return (
-                    <TouchableOpacity key={index} onPress={item.metric!=="incremental"?() => completeTask(index):null} onLongPress={() => removeTask(index)}>
+                    <TouchableOpacity key={index} onPress={null} onLongPress={() => removeTask(index)}>
                     <Task
                         key={item.id}
                         id={item.id}
@@ -332,8 +432,9 @@ const TaskScreen = ({navigation}) => {
                         metric={item.metric}
                         unitsComplete={item.unitsComplete}
                         targetUnits={item.targetUnits}
-                        complete={false}
-                        updateUnits={updateUnits}
+                        complete={item.complete}
+                        //updateUnits={updateUnits}
+                        updateTask={updateTask}
                     />
                     </TouchableOpacity>
                 );
@@ -347,8 +448,9 @@ const TaskScreen = ({navigation}) => {
                 {/*Iterate through completedTasks and display all tasks*/}
                 {completedTasks.map((item, index) => {
                 return (
-                    <TouchableOpacity key={index} onPress={() => uncompleteTask(index)} onLongPress={() => removeCompleteTask(index)}>
-                    <Task                       key={item.id}
+                    <TouchableOpacity key={index} onPress={null} onLongPress={() => removeCompleteTask(index)}>
+                    <Task                       
+                        key={item.id}
                         id={item.id}
                         text={item.text}
                         priority={item.priority}
@@ -358,8 +460,10 @@ const TaskScreen = ({navigation}) => {
                         targetUnits={item.targetUnits}
                         unitsComplete={item.unitsComplete}
 
-                        complete={true}
-                        updateUnits={updateUnits}
+                        complete={item.complete}
+                        //updateUnits={updateUnits}
+                        updateTask={updateTask}
+
 
                     />
                     </TouchableOpacity>

@@ -1,6 +1,7 @@
 //Imports
 import React, {useState, useEffect} from 'react';
 import { View, Text, StyleSheet, TouchableOpacity} from 'react-native';
+import Checkbox from  'expo-checkbox';
 import TextTicker from 'react-native-text-ticker'
 
 
@@ -27,11 +28,11 @@ var green = '#56D245';
 const Task = (props) => {
     var taskName = "Task";
     const getName=()=>{return taskName};
-    const [unitsComplete,setUnitsComplete] = useState(0);
+    var unitsComplete = 0;
     var targetUnits = 1.0;
 
     const [completion, setCompletion] = useState(0);
-    const [complete,setComplete] = useState(false);
+    var complete = false;
     const getComplete = () => {
         return complete;
     }
@@ -49,7 +50,11 @@ const Task = (props) => {
     metric = props.metric;
     units = props.units;
     targetUnits = props.targetUnits;
+    unitsComplete = props.unitsComplete;
     updateUnits = props.updateUnits;
+    updateTask = props.updateTask;
+    complete= props.complete;
+
     id = props.id;
 
 
@@ -77,10 +82,16 @@ const Task = (props) => {
     const handleAdd = async () => {
         console.log("changed units complete from " + unitsComplete+" to ");
         const newUnitsComplete = unitsComplete + 1.0;        
-        //Call updateUnits function passed from App.js
-        updateUnits(complete, targetUnits, unitsComplete, newUnitsComplete, setComplete, setUnitsComplete, weightage);
-        await setUnitsComplete(newUnitsComplete);
-        console.log(unitsComplete);
+        //Call updateTask function passed from App.js to update unitsComplete in Firestore
+        //updateUnits(complete, targetUnits, unitsComplete, newUnitsComplete, setComplete, setUnitsComplete, weightage);
+        await updateTask(id,{unitsComplete: newUnitsComplete}, "unitsComplete: "+newUnitsComplete).then( () => {
+            if(newUnitsComplete>=targetUnits){
+                updateTask(id,{complete: true}, "Complete: true")
+            }
+            console.log(unitsComplete);
+        }
+        )
+
     };
     
     
@@ -90,10 +101,16 @@ const Task = (props) => {
         const newUnitsComplete = unitsComplete - 1.0;
         //Make sure unitsComplete isn't being decremented below zero.
         if (newUnitsComplete >= 0) {
-            //Call updateUnits function passed from App.js
-            updateUnits(complete, targetUnits, unitsComplete, newUnitsComplete, setComplete, setUnitsComplete, weightage);
-            await setUnitsComplete(newUnitsComplete);
-            console.log(unitsComplete);
+            //Call updateTask function passed from App.js to update unitsComplete in Firestore
+            updateTask(id,{unitsComplete: newUnitsComplete},"unitsComplete: "+newUnitsComplete);
+            console.log(newUnitsComplete);
+        } else {
+            updateTask(id,{unitsComplete: 0},"unitsComplete: "+0);
+
+        }
+
+        if(newUnitsComplete<targetUnits){
+            updateTask(id,{complete: false}, "Complete: false")
         }
         console.log(unitsComplete);
 
@@ -108,6 +125,11 @@ const Task = (props) => {
     weightage = props.weightage;
     metric = props.metric;
     updateUnits = props.updateUnits;
+    updateTask = props.updateTask;
+    id = props.id;
+    unitsComplete = props.unitsComplete;
+    complete= props.complete;
+
 
     console.log("metric: " + metric);
     console.log("units complete: " +unitsComplete);
@@ -198,7 +220,7 @@ const Task = (props) => {
                         </View>
 
                         {/*If the metric is incremental and the task is incomplete, the user will be able to change the amount of units complete/*/}
-                        {(metric == ("incremental") && complete == false) && (
+                        {(metric === ("incremental")) && (
 
                             <>
                                 <View style={styles.contentRow}>
@@ -206,7 +228,6 @@ const Task = (props) => {
                                     <Text style={styles.unitsText}>
                                         {unitsComplete}/{targetUnits} {units}
                                     </Text>
-
 
                                     <View style={styles.whiteRoundedBox}>
                                         <TouchableOpacity style={styles.circularButton} onPress={handleSubtract}>
@@ -220,16 +241,45 @@ const Task = (props) => {
 
 
 
+
                                 </View>
                             </>
                         )}
 
+
+
+
                     </View>
-                    <View style={[styles.circular, { borderColor: (complete ? green : blue) }]}></View>
+
+
+
 
                 </View>
 
             </View>
+
+            {/*If the metric is boolean, the user will be able to mark the task complete/incomplete*/}
+            {(metric == "boolean") && (
+                <View style={styles.contentRow}>
+                    <Checkbox 
+                        value={complete} 
+                        onValueChange={async (newValue) => {
+                            // Update 'complete' in Firestore
+                            updateTask(id, { complete: !complete }, "Complete: " + (!complete));
+                                updateTask(id,{unitsComplete: 1-unitsComplete}, "unitsComplete: " + (1-unitsComplete));
+                        }} 
+                    />
+
+                </View>
+            )}
+
+            {(metric !=   "boolean")&&(
+                //The color of this circle indicates whether the task is complete or not.
+
+                <View style={[styles.circular, { borderColor: (complete ? green : blue) }]}></View>
+
+
+            )}
         </View></>
     
     )
@@ -264,7 +314,7 @@ const styles = StyleSheet.create({
       },
 
     itemText: {
-        fontSize:14,
+        fontSize:16,
         fontWeight: 'bold',
     },
 
@@ -275,8 +325,8 @@ const styles = StyleSheet.create({
     },
 
     circularButton: {
-        width: 25,
-        height: 25,
+        width: 30,
+        height: 30,
         backgroundColor: '#FFF',
         borderRadius: 30,
         justifyContent: 'center',
@@ -307,7 +357,7 @@ const styles = StyleSheet.create({
     },
 
     priorityText: (color) => ({
-        fontSize: 12,
+        fontSize: 14,
         color: color,
         fontWeight: "700",
     }),
@@ -322,6 +372,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-around',
+        maxWidth: '95%'
     },
     incrementalRow: {
         flexDirection: 'row',
