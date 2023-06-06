@@ -9,6 +9,7 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   ScrollView,
+  Image,
 } from 'react-native';
 
 import { auth, firestore } from '../Firebase/firebase';
@@ -21,7 +22,6 @@ const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 
 export default function SignupScreen({ navigation }) {
-
   {/*Initialize constants for all fields*/}
   const [values, setValues] = useState({
     firstName: "",
@@ -95,45 +95,56 @@ export default function SignupScreen({ navigation }) {
       behavior="padding"
     >
       <ScrollView>
-
-        <Text style={styles.boldText}>Sign Up</Text>
-
+        <Image
+        source={require('../assets/signupImage.png')}
+        style={styles.image}
+      />
         <View style={styles.inputContainer}>
 
           {/*Text Inputs*/}
           <View style={styles.rowContainer}>
             <TextInput
-              style={styles.whiteRoundedBox}
+              style={styles.roundedBox}
               maxWidth='49%'
               placeholder='First Name'
-              onChangeText={text => handleChange(text, "firstName")} />
+              onChangeText={text => handleChange(text, "firstName")} 
+              placeholderTextColor="#a1a1a1" 
+              />
 
             <TextInput
-              style={styles.whiteRoundedBox}
+              style={styles.roundedBox}
               maxWidth='49%'
               placeholder='Last Name'
-              onChangeText={text => handleChange(text, "lastName")} />
+              onChangeText={text => handleChange(text, "lastName")} 
+              placeholderTextColor="#a1a1a1" 
+              />
           </View>
 
 
           <TextInput
-            style={styles.whiteRoundedBox}
+            style={styles.roundedBox}
             placeholder='Email Address'
-            onChangeText={text => handleChange(text, "email")} />
+            onChangeText={text => handleChange(text, "email")} 
+            placeholderTextColor="#a1a1a1" 
+            />
 
 
-          <Text style={styles.subheading}>Account Type:</Text>
 
           <TextInput
-            style={styles.whiteRoundedBox}
+            style={styles.roundedBox}
             placeholder='Password'
             onChangeText={text => handleChange(text, "pwd")}
-            secureTextEntry />
+            secureTextEntry 
+            placeholderTextColor="#a1a1a1" 
+            />
           <TextInput
-            style={styles.whiteRoundedBox}
+            style={styles.roundedBox}
             placeholder='Confirm Password'
             onChangeText={text => handleChange(text, "pwd2")}
-            secureTextEntry />
+            secureTextEntry 
+            placeholderTextColor="#a1a1a1" 
+
+            />
         
 
 
@@ -154,9 +165,6 @@ export default function SignupScreen({ navigation }) {
                   <Text style={styles.buttonOutlineText}>Sign up with Apple</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.button, styles.buttonOutline]}>
-                  <Text style={styles.buttonOutlineText}>Sign up with Meta</Text>
-                </TouchableOpacity>
 
               </View>
               </ScrollView>
@@ -171,20 +179,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
+    backgroundColor: '#090C08',
   },
 
   inputContainer:{
     width: '95%',
   },
 
-  input: {
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: 'black',
-    paddingHorizontal: 10,
-    marginTop: 5,
-  },
 
   buttonContainer:{
     width: '95%',
@@ -192,6 +193,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
     marginBottom: 50,
+  },
+
+  image: {
+    height: 210,
+    width: 240,
+    marginTop: 50,
+    resizeMode: 'cover',
+    alignSelf: 'center',
   },
 
   wideButtonContainer:{
@@ -209,13 +218,18 @@ const styles = StyleSheet.create({
     padding: 15,
     marginVertical: 10,
     minWidth: windowWidth*0.44,
+    backgroundColor: '#090C08',
+    borderColor: 'white',
+    borderWidth: 2,
+
   },
 
   buttonOutline: {
     backgroundColor: 'white',
     marginTop: 5,
-    borderColor: '#0782F9',
+    borderColor: '#5034abff',
     borderWidth: 2,
+    backgroundColor: '#090C08',
   },
 
   buttonText: {
@@ -226,7 +240,7 @@ const styles = StyleSheet.create({
 
 
   buttonOutlineText: {
-    color: '#0782F9',
+    color: '#5034abff',
     fontWeight: '700',
     fontSize: 16,
   },
@@ -234,16 +248,15 @@ const styles = StyleSheet.create({
   boldText: {
     fontSize: 30,
     fontWeight: 'bold',
+    marginTop: 20,
     marginBottom: 20,
-    marginTop: 25,
-
+    color: 'white',
   },
 
-  whiteRoundedBox: {
-    backgroundColor: '#FFF',
+  roundedBox: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#C0C0C0',
+    borderColor: '#FFF',
     padding: 10,
     marginTop: 10,
     marginBottom: 10,
@@ -251,6 +264,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     minWidth: '49%',
+    color: 'white',
   },
 
   rowContainer: {
@@ -265,15 +279,4 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
 
-  rolesBubble: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#000',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  rolesBubbleSelected: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
-  },
 });

@@ -3,6 +3,7 @@ import React, {useState, useEffect} from 'react';
 import { View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import Checkbox from  'expo-checkbox';
 import TextTicker from 'react-native-text-ticker'
+import { format } from 'date-fns';
 
 
 
@@ -30,7 +31,7 @@ const Task = (props) => {
     const getName=()=>{return taskName};
     var unitsComplete = 0;
     var targetUnits = 1.0;
-
+    var dueDate = new Date();
     const [completion, setCompletion] = useState(0);
     var complete = false;
     const getComplete = () => {
@@ -54,7 +55,7 @@ const Task = (props) => {
     updateUnits = props.updateUnits;
     updateTask = props.updateTask;
     complete= props.complete;
-
+    //dueDate = props.dueDate;
     id = props.id;
 
 
@@ -129,11 +130,13 @@ const Task = (props) => {
     id = props.id;
     unitsComplete = props.unitsComplete;
     complete= props.complete;
+    dueDate = props.dueDate;
 
 
-    console.log("metric: " + metric);
-    console.log("units complete: " +unitsComplete);
-    console.log("completion: " +completion);
+
+    // console.log("metric: " + metric);
+    // console.log("units complete: " +unitsComplete);
+    // console.log("completion: " +completion);
 
 
     if(metric==="incremental"){
@@ -187,9 +190,9 @@ const Task = (props) => {
 
                         <View style={styles.contentRow}>
                             <TextTicker
-                                minWidth={'40%'}
+                                minWidth={'35%'}
 
-                                maxWidth={'40%'}
+                                maxWidth={'35%'}
                                 duration={500+200*(taskName.length)}
                                 animationType={'scroll'}
                                 //loop
@@ -198,7 +201,7 @@ const Task = (props) => {
                                 marqueeDelay={0}
                                 ellipsizeMode={'clip'}
                             >
-                            {taskName.length<=12 ? `${taskName}                                     `: ` ${taskName}                                     ${taskName}                                     ${taskName}                                     `}
+                            {taskName.length<=7 ? `${taskName}                                     `: ` ${taskName}                                     ${taskName}                                     ${taskName}                                     `}
 
                             </TextTicker>
 
@@ -213,8 +216,11 @@ const Task = (props) => {
                                 repeatSpacer={0}
                                 marqueeDelay={0}
                                 style={styles.priorityText(priorityColor)}
+                                minWidth={'65%'}
+                                maxWidth={'65%'}
+
                             >
-                                {'(' + priorityText + ', ' + weightage + '%)'}
+                                {'(' + priorityText + ', due:' + format(dueDate, 'MM/dd/yyyy')+ ')                                                   '}
 
                             </TextTicker>
                         </View>
@@ -258,24 +264,24 @@ const Task = (props) => {
 
             </View>
 
-            {/*If the metric is boolean, the user will be able to mark the task complete/incomplete*/}
+            {/*If the metric is boolean, the user will be able to mark the task complete/incomplete using a checkbox*/}
             {(metric == "boolean") && (
                 <View style={styles.contentRow}>
                     <Checkbox 
                         value={complete} 
+                        color={complete? green:blue}
                         onValueChange={async (newValue) => {
-                            // Update 'complete' in Firestore
+                            // Update 'complete' and 'unitsComplete' in Firestore using updateTask function passed from TasksScreen.js
                             updateTask(id, { complete: !complete }, "Complete: " + (!complete));
-                                updateTask(id,{unitsComplete: 1-unitsComplete}, "unitsComplete: " + (1-unitsComplete));
+                            updateTask(id,{unitsComplete: 1-unitsComplete}, "unitsComplete: " + (1-unitsComplete));
                         }} 
                     />
 
                 </View>
             )}
 
-            {(metric !=   "boolean")&&(
+            {(metric !="boolean")&&(
                 //The color of this circle indicates whether the task is complete or not.
-
                 <View style={[styles.circular, { borderColor: (complete ? green : blue) }]}></View>
 
 
@@ -289,20 +295,21 @@ const Task = (props) => {
 //Styles
 const styles = StyleSheet.create({
     item: {
-        backgroundColor: '#FFF',
+        backgroundColor: '#100333',
         padding: 15,
         borderRadius: 10,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         marginBottom: 20,
+        borderColor: '#FFF',
+        borderWidth: 1,
     },
 
     whiteRoundedBox: {
-        backgroundColor: '#FFF',
         borderRadius: 60,
         borderWidth: 1,
-        borderColor: '#C0C0C0',
+        borderColor: '#FFF',
         padding: 4,
         marginTop: 10,
         marginBottom: 10,
@@ -316,6 +323,7 @@ const styles = StyleSheet.create({
     itemText: {
         fontSize:16,
         fontWeight: 'bold',
+        color: '#FFF',
     },
 
     itemLeft: {
@@ -327,11 +335,10 @@ const styles = StyleSheet.create({
     circularButton: {
         width: 30,
         height: 30,
-        backgroundColor: '#FFF',
         borderRadius: 30,
         justifyContent: 'center',
         alignItems: 'center',
-        borderColor: '#C0C0C0',
+        borderColor: '#FFF',
         borderWidth: 1,
         marginHorizontal: 2,
       },
@@ -382,8 +389,9 @@ const styles = StyleSheet.create({
     buttonText: {
         fontSize: 18,
         fontWeight: "900",
-        marginBottom: 3,
+        marginBottom: 2,
         marginStart: 1,
+        color: '#FFF',
 
     },
 
@@ -391,6 +399,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: "700",
         width: '55%',
+        color: '#FFF',
     }
     
 });  

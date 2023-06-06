@@ -1,5 +1,5 @@
 //Import statements
-import React, {useCallback, useRef, useState, useEffect } from "react";
+import React, {useCallback, useRef, useMemo, useState, useEffect } from "react";
 import {
   KeyboardAvoidingView,
   Dimensions,
@@ -15,9 +15,14 @@ import {
 } from "react-native";
 
 import { storage, ref, firestore, auth } from '../Firebase/firebase';
-import { collection, doc, updateDoc, addDoc, serverTimestamp, getDocs, query, where, getDoc, onSnapshot, orderBy } from "firebase/firestore"; 
+import { collection, doc, updateDoc, 
+  addDoc, serverTimestamp, getDocs, 
+  query, where, getDoc, onSnapshot, 
+  orderBy,Timestamp } from "firebase/firestore"; 
 
 import Task from "C:/Users/nikhi/apps/MilestoneV0000/components/Task";
+import Ionicons from 'react-native-vector-icons/Ionicons';
+
 
 //Circular Progress Import
 import { AnimatedCircularProgress } from "react-native-circular-progress";
@@ -27,17 +32,21 @@ import UUIDGenerator from 'react-native-uuid-generator';
 //BottomSheet import
 import BottomSheet, {BottomSheetView, BottomSheetModal, BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 
-//Picker import
+//Picker imports
 import RNPickerSelect from 'react-native-picker-select';
+import DatePicker from 'react-native-modern-datepicker';
+import { getToday, getFormatedDate } from 'react-native-modern-datepicker';
 
 
 //Export
 const TaskScreen = ({navigation}) => {
   const [user,setUser] = useState(null)
 
+ 
   // Fetch the current user's data
-  useEffect(async () => {
+  useEffect(() => {
     const fetchUser = async () => {
+      console.log("Fetching user");
       //Make a query in the firestore for users with the same uid as the current user (there will only be one)
       const userQuery = query(collection(firestore, "users"), where("uid", "==", auth.currentUser.uid));
       const querySnapshot = await getDocs(userQuery);
@@ -64,9 +73,7 @@ const TaskScreen = ({navigation}) => {
     };
         
 
-    await fetchUser().then(() => {
-      fetchTasks();  // call fetchTasks only after fetchUser has finished
-    });
+    fetchUser();
   }, []);
 
     //Signs user out and navigates back to log in screen
@@ -86,10 +93,13 @@ const TaskScreen = ({navigation}) => {
   {/*BottomSheet Constants*/}
   const sheetRef = useRef(null);
   const [bottomSheetIsOpen, setBottomSheetIsOpen] = useState(true);
-  const transparentHandleStyle = {
-    backgroundColor: 'transparent',
-  };
-  const snapPoints = ["1%", "23%", "46%"];
+
+
+  
+  //These are all of the possible heights of the bottom sheet.
+  const snapPoints = ["1%", "20%", "65%"];
+
+  //This method moves the bottomSheet to the selected position.
   const handleSnapPress = useCallback((index) => {
     sheetRef.current?.snapToIndex(index);
     setBottomSheetIsOpen(true);
@@ -105,10 +115,21 @@ const TaskScreen = ({navigation}) => {
   const [targetUnits, setTargetUnits] = useState(null);
   const [weightage, setWeightage] = useState(null);
 
-  {/*Task arrays & progress*/}
+  //Date stuff
+  const [dueDate, setDueDate] = useState(null);
+  const minimumDate = getToday();
+
+
+
+  //Task arrays & progress
   const [taskItems, setTaskItems] = useState([]);
   const [completedTasks, setCompletedTasks] = useState([]);
   const [totalWeight, setTotalWeight] = useState(0);
+
+  //Set to store all unique due dates
+  const [dueDatesSet, setDueDatesSet] = useState(new Set());
+
+
   //Sort Tasks by priority
   const sortedTasks = taskItems.sort((a, b) => a.priority - b.priority);
   const [progress, setProgress] = useState(0);
@@ -117,6 +138,9 @@ const TaskScreen = ({navigation}) => {
     const fetchTasks = () => {
       console.log("Fetching tasks...");
       //Make a query for the user's tasks
+      while(!user){
+        console.log("Waiting for user to be initialized..." + user.id)
+      }
       const tasksCollection = collection(firestore, "users", user.id, "tasks");
       const tasksQuery = query(tasksCollection, orderBy("createdTime", "desc"));
 
@@ -132,6 +156,7 @@ const TaskScreen = ({navigation}) => {
         const fetchedTasksPromises = querySnapshot.docChanges().map(async (change) => {
           if (change.type === "added" || change.type === "modified") {
             const doc = change.doc;
+            
             return {
               id:doc.id,
               createdTime: doc.get("createdTime"),
@@ -143,6 +168,7 @@ const TaskScreen = ({navigation}) => {
               weightage: doc.get("weightage"), 
               unitsComplete: doc.get("unitsComplete"), 
               complete: doc.get("complete"),
+              dueDate: doc.get("dueDate") ? doc.get("dueDate").toDate():null,
               //updateUnits:updateUnits,
               updateTask: updateTask,
             };
@@ -154,6 +180,17 @@ const TaskScreen = ({navigation}) => {
           //Filter the tasks by completion
           const completedTasks = fetchedTasks.filter(task => task.complete);
           const incompleteTasks = fetchedTasks.filter(task => !task.complete);    
+         
+          // update due dates set
+          fetchedTasks.forEach(task => {
+            if(task.dueDate) {
+              setDueDatesSet(prevDatesSet => {
+                prevDatesSet.add(task.dueDate);
+                return new Set(prevDatesSet);
+              });
+            }
+          });
+          
           setTaskItems(prevTasks => {
             // Remove the tasks that were changed
             const unchangedTasks = prevTasks.filter(task => !fetchedTasks.find(fetchedTask => fetchedTask.id === task.id));
@@ -176,11 +213,12 @@ const TaskScreen = ({navigation}) => {
 
     //Continuously fetch tasks
     useEffect(() => {
+      console.log("user data changed, refetching tasks")
       if (user) {
         const unsubscribe = fetchTasks();
         return () => unsubscribe(); 
       }
-    }, [user, progress]);  //Runs when user data changes
+    }, [user]);  //Runs when user data changes
     
     
     
@@ -230,25 +268,10 @@ const TaskScreen = ({navigation}) => {
     setProgress(completedPercentage);
   };
 
-  {/*Method passed to each task to update screen when user increments/decrements units complete*/}
-  {/*
-  const updateUnits = async (targetUnits, oldUnitsComplete, unitsComplete, setComplete, weightage) => {
-    //If the incremental task is finished, set complete to true.
-    if(unitsComplete>=targetUnits){
-      await setComplete(true);
-      await completeTasks();
-      calculateProgress();
-    } else{
-      calculateProgress();
-    }
-    
-
-    setProgress(progress+(weightage*(unitsComplete-oldUnitsComplete)/targetUnits)/totalWeight*100);
-  };
-*/}
 
   //Calculates progress whenever taskItems or completedTasks is changed.
   useEffect(() => {
+    console.log("Calculating progress...")
     calculateProgress();
   }, [taskItems, completedTasks]);
 
@@ -276,9 +299,9 @@ const TaskScreen = ({navigation}) => {
   //This method adds the new task to the Firestore if the
   const handleAddTask = async () => {
     Keyboard.dismiss();
-    if (task&&taskPriority&& metricType && weightage && !(metricType==="incremental" && (!units || !targetUnits))) {
+    if (task&&taskPriority&& metricType && weightage && !(metricType==="incremental" && (!units || !targetUnits)) && dueDate) {
       //UUIDGenerator.getRandomUUID().then((uuid) => {
-
+        console.log("Adding task...")
         await addDoc(collection(firestore, "users", user.id, "tasks"), {
           createdTime: serverTimestamp(),
           taskName: task,
@@ -289,6 +312,10 @@ const TaskScreen = ({navigation}) => {
           weightage: weightage, 
           unitsComplete: 0, 
           complete: false,
+          //Convert date string to date
+          dueDate: Timestamp.fromDate(new Date(parseInt(dueDate.substring(0,4)), 
+                                               parseInt(dueDate.substring(5,7))-1, 
+                                               parseInt(dueDate.substring(8)), 23, 59, 59)),
         })
         .then(() => {
             console.log('Task Added!');
@@ -309,9 +336,9 @@ const TaskScreen = ({navigation}) => {
         setTargetUnits(null);
         setMetricType("boolean");
         setWeightage(null);
+        setDueDate(null);
         inputRef.current.clear(); 
         handleSnapPress(0);
-
       //});
     {/*Notify user if they didn't fill out all fields*/}
     } else{
@@ -387,7 +414,9 @@ const TaskScreen = ({navigation}) => {
           marginBottom={50}
           //Use progress variable for progress
           fill={progress}
-          tintColor="#56D245"
+          tintColor="#03befc"
+          tintColorSecondary="#56D245"
+
           onAnimationComplete={() => console.log("onAnimationComplete")}
           backgroundColor="#3d5875"
           animated
@@ -407,46 +436,53 @@ const TaskScreen = ({navigation}) => {
                     </View>
                 </TouchableOpacity>
             </View>
+            {/* Iterating through dueDatesSet */}
+            {Array.from(dueDatesSet).sort().map((date, index) => {
+                //Spliting an IOSString by T gives the strings
+                //"YYYY-MM-DD" and HH:MM:SS"
+                //We can compare dates while ignoring time by just
+                //using the first of these two strings.
+                const tasksForThisDate = sortedTasks.filter
+                (task => task.dueDate && task.dueDate.toISOString().split('T')[0] 
+                === date.toISOString().split('T')[0]);
 
-            {/*Message that appears if there are no remaining tasks*/}
-            {taskItems.length === 0 ? (
-                <Text style={styles.smallMessage}>
-                You've completed all of your tasks today!
-                </Text>
-            ) : null}
-
-            <View style={styles.items}>
-                {/*This is where the tasks will go*/}
-                {/*Change to sorted later*/}
-                {/*Iterate through taskItems and display all tasks*/}
-                {sortedTasks.map((item, index) => {
                 return (
-                    <TouchableOpacity key={index} onPress={null} onLongPress={() => removeTask(index)}>
-                    <Task
-                        key={item.id}
-                        id={item.id}
-                        text={item.text}
-                        priority={item.priority}
-                        weightage={item.weightage}
-                        units={item.units}
-                        metric={item.metric}
-                        unitsComplete={item.unitsComplete}
-                        targetUnits={item.targetUnits}
-                        complete={item.complete}
-                        //updateUnits={updateUnits}
-                        updateTask={updateTask}
-                    />
-                    </TouchableOpacity>
+                    <View key={index}>
+                        {/* Header for this date */}
+                        <Text style={styles.sectionTitle}>{date.toISOString().split('T')[0]}'s Tasks</Text>
+
+                        {/* Iterate through tasks for this date */}
+                        {tasksForThisDate.map((item, index) => {
+                            return (
+                                <TouchableOpacity key={index} onPress={null} onLongPress={() => removeTask(index)}>
+                                <Task
+                                    key={item.id}
+                                    id={item.id}
+                                    text={item.text}
+                                    priority={item.priority}
+                                    weightage={item.weightage}
+                                    units={item.units}
+                                    metric={item.metric}
+                                    unitsComplete={item.unitsComplete}
+                                    targetUnits={item.targetUnits}
+                                    complete={item.complete}
+                                    dueDate={item.dueDate}
+                                    updateTask={updateTask}
+                                />
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
                 );
-                })}
+            })}
 
-
-                {completedTasks.length === 0 ? null : (
+            {/* Completed Tasks */}
+            {completedTasks.length === 0 ? null : (
                 <Text style={styles.sectionTitle} paddingTop = {15} paddingBottom={30}>Completed</Text>
-                ) }
+            )}
 
-                {/*Iterate through completedTasks and display all tasks*/}
-                {completedTasks.map((item, index) => {
+            {/* Iterate through completedTasks and display all tasks */}
+            {completedTasks.map((item, index) => {
                 return (
                     <TouchableOpacity key={index} onPress={null} onLongPress={() => removeCompleteTask(index)}>
                     <Task                       
@@ -459,25 +495,15 @@ const TaskScreen = ({navigation}) => {
                         metric={item.metric}
                         targetUnits={item.targetUnits}
                         unitsComplete={item.unitsComplete}
-
                         complete={item.complete}
-                        //updateUnits={updateUnits}
+                        dueDate={item.dueDate}
                         updateTask={updateTask}
-
-
                     />
                     </TouchableOpacity>
                 );
-                })}
-
-
-            </View>
-
-            <TouchableOpacity style={styles.button} onPress={handleSignOut}>
-                    <Text style={styles.buttonText}>Sign out</Text>
-            </TouchableOpacity>
+            })}
         </View>
-
+            
 
       </ScrollView>
 
@@ -490,124 +516,174 @@ const TaskScreen = ({navigation}) => {
         //enablePanDownToClose={true}
           //Set tracking variable for stqate of bottomsheet to false
         onClose={() => setBottomSheetIsOpen(false)}
-        handleStyle={transparentHandleStyle}       
+        handleStyle={{backgroundColor: '#100333', height:1}}       
       >
         {/*BottomSheet with add task menu*/}
         <BottomSheetView
             style={styles.bottomSheetContentContainer}
-            backgroundColor='#c0c0c2'
             padding={10}
-        >
-            <Text style={styles.addTaskTitle}>Add Task</Text>
-            <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.writeTaskWrapper}
-            >
-              {/*Task name field*/}
-              <View style = {styles.addTaskContainer}>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                  ref={inputRef}
-                  style={styles.input}
-                  placeholder={'Write a task'}
-                  value={task}
-                  width={'80%'}
-                  onChangeText={text => setTask(text)}
-                  />
-                  <TouchableOpacity onPress={() => handleAddTask()}>
-                    <View style={styles.addWrapper}>
-                        <Text style={styles.addText}>+</Text>
+          >
+            <ScrollView            >
+              <Text style={styles.sectionTitle}>Add Task</Text>
+              <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.writeTaskWrapper}
+              >
+                  {/*Task name field*/}
+                  <View style = {styles.addTaskContainer}>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                      ref={inputRef}
+                      style={styles.input}
+                      placeholder={'Write a task'}
+                      value={task}
+                      width={'80%'}
+                      onChangeText={text => setTask(text)}
+                      />
+                      <TouchableOpacity onPress={() => handleAddTask()}>
+                        <View style={styles.addWrapper}>
+                          <Ionicons name="ios-add-circle" color={'#220c5e'} size={58}/>
+                        </View>
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
-              </View>
-              
-              <View style={styles.whiteRoundedBox}>
-                {/*Priority picker, each priority corresponds to a numerical value that is used to sort the tasks when displayed*/}
-                <Text style={styles.pickerLabel}>Priority:</Text>
-                <RNPickerSelect
-                  style={styles.picker}
-                  value={taskPriority}
-                  onValueChange={(value) => setTaskPriority(value)}
-                  items={[
-                    { label: 'Critical', value: 1 },
-                    { label: 'High Priority', value: 2 },
-                    { label: 'Medium Priority', value: 3 },
-                    { label: 'Low Priority', value: 4 },
-                    { label: 'Optional', value: 5 },
-                  ]}
-                  placeholder={{ label: 'Select Priority', value: null }}
-                />
-              </View>
+                
+                    <View style={styles.whiteRoundedBox}>
+                      {/*Priority picker, each priority corresponds to a numerical value that is used to sort the tasks when displayed*/}
+                      <Text style={styles.pickerLabel}>Priority:</Text>
+                      <RNPickerSelect
+                        style={pickerSelectStylesNoBorder}
+                        value={taskPriority}
+                        onValueChange={(value) => setTaskPriority(value)}
+                        items={[
+                          { label: 'Critical', value: 1},
+                          { label: 'High Priority', value: 2 },
+                          { label: 'Medium Priority', value: 3 },
+                          { label: 'Low Priority', value: 4 },
+                          { label: 'Optional', value: 5 },
+                        ]}
+                        placeholder={{ label: 'Select Priority', value: null }}
+                      />
+                    </View>
 
 
-                <View style={styles.addTaskMenuRow}>
-                  <Text style={styles.addTaskSubheading}>Metric Type:</Text>
-                  <TouchableOpacity
-                    style={[
+                    <View style={styles.addTaskMenuRow}>
+                      <Text style={styles.addTaskSubheading}>Metric Type:</Text>
+                      {metricType === "boolean" && (
+
+                        <><TouchableOpacity
+                      style={[                                                         
+                        styles.metricTypeBubble,
+                        metricType === 'boolean' ? styles.metricTypeBubbleSelected : {},
+                      ]}
+                      onPress={() => { setMetricType("boolean"); } }>
+                      <Text style={styles.selectedButtonText} color={(metricType == "boolean") ? "#D6C7A1" : "#FFF"}>True/False</Text>
+                    </TouchableOpacity><TouchableOpacity
+                      style={[
+                        styles.metricTypeBubble,
+                        metricType === 'incremental' ? styles.metricTypeBubbleSelected : {},
+                      ]}
+                      onPress={() => { setMetricType("incremental"); } }>
+                        <Text style={styles.buttonText}>Incremental</Text>
+                      </TouchableOpacity></>
+                      )}
+
+                      {metricType === "incremental" && (
+
+                      <><TouchableOpacity
+                      style={[
                       styles.metricTypeBubble,
                       metricType === 'boolean' ? styles.metricTypeBubbleSelected : {},
-                    ]}
-                    onPress={() => {setMetricType("boolean")}}>
-                    <Text style={styles.buttonText}>True/False</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
+                      ]}
+                      onPress={() => { setMetricType("boolean"); } }>
+                      <Text style={styles.buttonText} color={(metricType == "boolean") ? "#D6C7A1" : "#FFF"}>True/False</Text>
+                      </TouchableOpacity><TouchableOpacity
+                      style={[
                       styles.metricTypeBubble,
                       metricType === 'incremental' ? styles.metricTypeBubbleSelected : {},
-                    ]}
-                    onPress={() => {setMetricType("incremental")}}>
-                    <Text style={styles.buttonText}>Incremental</Text>
-                  </TouchableOpacity>
-                </View>
+                      ]}
+                      onPress={() => { setMetricType("incremental"); } }>
+                      <Text style={styles.selectedButtonText}>Incremental</Text>
+                      </TouchableOpacity></>
+                      )}
+                    </View>
 
-                <View style={styles.addTaskMenuRow}>
-                  
-                  {/*If the metric type is incremental, the user will be able to set the amount and type of units.*/}
-                  {metricType === "incremental" && (
-                    <>
+                    <View style={styles.addTaskMenuRow}>
+                      
+                      {/*If the metric type is incremental, the user will be able to set the amount and type of units.*/}
+                      {metricType === "incremental" && (
+                        <>
+                          <View style={styles.whiteRoundedBox}>
+
+                            <Text style={styles.addTaskSubheading}>Goal: </Text>
+
+                            <RNPickerSelect
+                              style={pickerSelectStyles}
+                              value={targetUnits}
+                              onValueChange={(value) => setTargetUnits(value)}
+                              items={[...Array(500)].map((_, i) => ({ label: `${i + 1}`, value: i + 1 }))} 
+                              placeholder={{ label: 'Amount', value: null }}
+
+                            />
+                            <TextInput
+                              style={styles.unitsInput}
+                              maxWidth={'34%'}
+                              placeholder="Units"
+                              onChangeText={(text) => setUnits(text)}
+                              value={units}
+                            />
+                          </View>
+
+                        
+
+                        </>
+                      )}
+
                       <View style={styles.whiteRoundedBox}>
-
-                        <Text style={styles.addTaskSubheading}>Goal: </Text>
-
+                        <Text style={styles.addTaskSubheading}>Weightage: </Text>
                         <RNPickerSelect
                           style={pickerSelectStyles}
-                          value={targetUnits}
-                          onValueChange={(value) => setTargetUnits(value)}
-                          items={[...Array(300)].map((_, i) => ({ label: `${i + 1}`, value: i + 1 }))} 
-                          placeholder={{ label: 'Amount', value: null }}
+                          value={weightage}
+                          onValueChange={(value) => setWeightage(value)}
+                          items={[...Array(100)].map((_, i) => ({ label: `${100 - i}%`, value: 100 - i }))}
+                          placeholder={{ label: 'Select', value: null }}
 
-                        />
-                        <TextInput
-                          style={styles.unitsInput}
-                          maxWidth={'34%'}
-                          placeholder="Units"
-                          onChangeText={(text) => setUnits(text)}
-                          value={units}
                         />
                       </View>
-
                     
+                    </View>
+                  
+                    <View style={styles.verticalRoundedBox}>
+                      
+                      <Text  style= {styles.dueDateSubheading}>
+                        Due date:
+                      </Text>
+                      <DatePicker
+                        options={{
+                          backgroundColor: '#090C08',
+                          textHeaderColor: '#FFA25B',
+                          textDefaultColor: '#F6E7C1',
+                          selectedTextColor: '#fff',
+                          mainColor: '#F4722B',
+                          textSecondaryColor: '#D6C7A1',
+                          borderColor: 'rgba(122, 146, 165, 0.1)',
+                          current: dueDate,
+                        }}
+ 
+                        mode="calendar"
+                        minimumDate={minimumDate}
+                        style={{ borderRadius: 10 }}
+                        onDateChange={date => {
+                          console.log("Changing duedate to " + date)
+                          setDueDate(date)
+                        
+                        }}
+                      />
+                    </View>
 
-                    </>
-                  )}
-
-                  <View style={styles.whiteRoundedBox}>
-                    <Text style={styles.addTaskSubheading}>Weightage: </Text>
-                    <RNPickerSelect
-                      style={pickerSelectStyles}
-                      value={weightage}
-                      onValueChange={(value) => setWeightage(value)}
-                      items={[...Array(100)].map((_, i) => ({ label: `${100 - i}%`, value: 100 - i }))}
-                      placeholder={{ label: 'Select', value: null }}
-
-                    />
                   </View>
-              
-                </View>
-              </View>
-            </KeyboardAvoidingView>
-
-          </BottomSheetView>
+                </KeyboardAvoidingView>
+              </ScrollView>
+            </BottomSheetView>
       </BottomSheet>
 
 
@@ -623,14 +699,15 @@ export default TaskScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E8EAED',
+    backgroundColor: '#0c0129',
   },
 
   titleWrapper: {
     paddingTop:54,
     paddingBottom:20,
     paddingHorizontal:20,
-    backgroundColor: '#E8EAED',
+    backgroundColor: '#090C08',    
+    color: '#FFF',
     fontSize: 39,
     fontWeight: 'bold',
 
@@ -642,12 +719,13 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     borderColor: '#C0C0C0',
     borderWidth: 1,
-    backgroundColor: '#D4D5D8',
+    backgroundColor: '#090C08',
   },
 
   sectionTitle: {
     fontSize: 28,
     fontWeight: 'bold',
+    color: '#FFF',
   },
 
   items: {
@@ -682,46 +760,55 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   buttonText: {
-    color: 'white',
     fontWeight: '700',
     fontSize: 16,
+    color: 'white',
+  },
+
+  selectedButtonText: {
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#FFA25B',
   },
   addWrapper: {
-    width: 60,
-    height: 60,
-    backgroundColor: '#FFF',
+    width: 57,
+    height: 57,
+    backgroundColor: '#0c0129',
     borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
     borderColor: '#C0C0C0',
-    borderWidth: 1,
+    paddingLeft: 2,
   },
   
   addSheetOpenerWrapper: {
     width: 90,
     height: 40,
-    backgroundColor: '#c0c0c2',
     borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
-    borderColor: '#C0C0C0',
+    borderColor: '#FFA25B',
     borderWidth: 1,
   },
 
   addText: {
     color: '#bcbcbc',
-    fontSize: 20,
+    fontSize: 60,
+    marginStart: 3,
+    marginBottom: 20,
     fontWeight: 'bold',
+    alignSelf: 'center',
   },
 
   addSheetOpenerText: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: '#FFA25B',
   },
 
 
   smallMessage: {
-    color: '#AAABAD',
+    color: '#D6C7A1',
     paddingHorizontal: 100,
     paddingTop: 80,
     paddingBottom: 140,
@@ -751,6 +838,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 5,
     marginStart: 75,
+    color: '#FFF',
 
   },
 
@@ -759,6 +847,8 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'flex-start',
     alignItems: 'center',
+    backgroundColor: '#090C08',
+
   },  
 
   addTaskTitle: {
@@ -787,10 +877,9 @@ const styles = StyleSheet.create({
   },
 
   whiteRoundedBox: {
-    backgroundColor: '#FFF',
     borderRadius: 60,
     borderWidth: 1,
-    borderColor: '#C0C0C0',
+    borderColor: '#FFF',
     padding: 10,
     marginTop: 10,
     marginBottom: 10,
@@ -799,7 +888,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   
-
+  verticalRoundedBox: {
+    borderRadius: 60,
+    borderWidth: 1,
+    borderColor: '#FFF',
+    padding: 20,
+    marginTop: 10,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   picker: {
     marginTop: 10,
     marginBottom: 10,
@@ -807,16 +905,16 @@ const styles = StyleSheet.create({
 
     alignSelf: 'center',
     borderWidth: 1,
-    borderColor: '#C0C0C0',
+    borderColor: '#FFF',
     borderRadius: 5,
-    backgroundColor: '#FFF',
+    backgroundColor: '#090C08',
+
   },
 
   pickerLabel: {
-
     fontSize: 16,
     alignSelf: 'center',
-
+    color: '#FFF',
     fontWeight: 'bold',
     marginHorizontal: 10,
   },
@@ -831,40 +929,70 @@ const styles = StyleSheet.create({
   addTaskSubheading: {
     fontWeight: 'bold',
     fontSize: 16,
+    color: '#FFF',
   },
+
+  dueDateSubheading: {
+    fontWeight: 'bold',
+    fontSize: 22,
+    color: '#FFF',
+    marginBottom: 10,
+  }, 
+
   metricTypeBubble: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#000',
+    borderColor: '#FFF',
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   metricTypeBubbleSelected: {
     backgroundColor: '#000000',
+    borderColor: '#FFA25B',
   },
   unitsInput: {
     borderWidth: 1,
-    borderColor: '#000',
+    borderColor: '#FFF',
     borderRadius: 5,
     paddingHorizontal: 10,
     paddingVertical: 5,
     marginLeft: 6,
+    color: '#FFA25B',
   },
 });
 
 const pickerSelectStyles = StyleSheet.create({
   inputIOS: {
     borderWidth: 1,
-    borderColor: '#000',
+    borderColor: '#FFF',
     borderRadius: 5,
     paddingHorizontal: 10,
     paddingVertical: 5,
+    color: '#FFA25B',
   },
   inputAndroid: {
     borderWidth: 1,
-    borderColor: '#000',
+    borderColor: '#FFF',
     borderRadius: 5,
     paddingHorizontal: 10,
     paddingVertical: 5,
+    color: '#FFA25B',
+
+  },
+});
+
+const pickerSelectStylesNoBorder = StyleSheet.create({
+  inputIOS: {
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    color: '#FFA25B',
+  },
+  inputAndroid: {
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    color: '#FFA25B',
+
   },
 });

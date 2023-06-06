@@ -25,7 +25,28 @@ export default function App() {
           {(props) => <LoginScreen {...props}/>}
         </Stack.Screen>
 
-        <Stack.Screen options={{headerShown: true}} name="Signup" >
+        <Stack.Screen name="Signup"
+                options={{
+                  title: 'Sign Up',
+                  headerTitleStyle: {
+                    fontSize: 30,
+                    fontWeight: 'bold',
+                    marginTop: 20,
+                    marginBottom: 20,
+                    color: 'white',
+                  },
+
+                  headerShown: true,
+                  headerStyle: {
+                    backgroundColor: '#000',
+                    borderColor: '#000',
+                    borderWidth: 1,
+                  },
+                  headerTintColor: '#5034abff',
+                  headerTitleStyle: {
+                    fontWeight: 'bold',
+                  },
+                }} >
         {(props) => <SignupScreen {...props} />}
         </Stack.Screen>
 

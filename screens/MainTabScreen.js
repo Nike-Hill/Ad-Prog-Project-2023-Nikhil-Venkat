@@ -20,15 +20,15 @@ import ChallengesScreen from './ChallengesScreen';
 const Tab = createMaterialBottomTabNavigator();
 
 
-
 const MainTabScreen = () => {
     //Return navigator with all main screens
     return (
         <Tab.Navigator
           initialRouteName="Home"
-          activeColor="#0277bd"
+          activeColor='#FFA25B'
           inactiveTintColor= 'gray'
-          barStyle={{ backgroundColor: '#e3e3e3' }}
+          barStyle={{ backgroundColor: '#000'}}
+          shifting={false}
         >
           <Tab.Screen
             name="HomeScreen"

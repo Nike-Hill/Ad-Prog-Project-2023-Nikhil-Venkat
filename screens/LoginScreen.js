@@ -55,18 +55,20 @@ export default function LoginScreen({ navigation }) {
 
       <View style={styles.inputContainer}>
         <TextInput 
-          style={styles.whiteRoundedBox} 
+          style={styles.roundedBox} 
           placeholder='Email Address' 
           value = {email}
           onChangeText={text=>setEmail(text)}
+          placeholderTextColor="#a1a1a1" 
         />
 
         <TextInput 
-          style={styles.whiteRoundedBox} 
+          style={styles.roundedBox} 
           placeholder='Password'
           value = {password}
           onChangeText={text=>setPassword(text)}
           secureTextEntry 
+          placeholderTextColor="#a1a1a1" 
         />
       </View>
 
@@ -88,7 +90,7 @@ export default function LoginScreen({ navigation }) {
 
 
         <TouchableOpacity  style={[styles.button, styles.buttonOutline]}>
-          <Text style={styles.buttonOutlineText}>Sign in with Meta</Text>
+          <Text style={styles.buttonOutlineText}>Sign in with Apple</Text>
         </TouchableOpacity>
       </View>
 
@@ -114,20 +116,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
+    backgroundColor: '#090C08',
   },
 
   inputContainer:{
     width: '95%',
   },
 
-  input: {
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: 'black',
-    paddingHorizontal: 10,
-    marginTop: 5,
-  },
+
 
   buttonContainer:{
     width: '95%',
@@ -152,13 +148,18 @@ const styles = StyleSheet.create({
     padding: 15,
     marginVertical: 10,
     minWidth: windowWidth*0.44,
+    backgroundColor: '#090C08',
+    borderColor: 'white',
+    borderWidth: 2,
+
   },
 
   buttonOutline: {
     backgroundColor: 'white',
     marginTop: 5,
-    borderColor: '#0782F9',
+    borderColor: '#5034abff',
     borderWidth: 2,
+    backgroundColor: '#090C08',
   },
 
   buttonText: {
@@ -169,7 +170,7 @@ const styles = StyleSheet.create({
 
 
   buttonOutlineText: {
-    color: '#0782F9',
+    color: '#5034abff',
     fontWeight: '700',
     fontSize: 16,
   },
@@ -179,20 +180,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 20,
     marginBottom: 20,
-
+    color: 'white',
   },
 
-  whiteRoundedBox: {
-    backgroundColor: '#FFF',
+  roundedBox: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#C0C0C0',
+    borderColor: '#FFF',
     padding: 10,
     marginTop: 10,
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    color: 'white',
+    placeholderTextColor: 'white',
   },
 
   rowContainer: {
