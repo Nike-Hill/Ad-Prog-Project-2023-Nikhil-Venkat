@@ -60,6 +60,7 @@ export default function LoginScreen({ navigation }) {
           value = {email}
           onChangeText={text=>setEmail(text)}
           placeholderTextColor="#a1a1a1" 
+          keyboardAppearance='dark'
         />
 
         <TextInput 
@@ -69,6 +70,7 @@ export default function LoginScreen({ navigation }) {
           onChangeText={text=>setPassword(text)}
           secureTextEntry 
           placeholderTextColor="#a1a1a1" 
+          keyboardAppearance='dark'
         />
       </View>
 

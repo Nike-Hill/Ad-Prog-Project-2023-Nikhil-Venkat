@@ -14,10 +14,13 @@ import {
   Alert,
 } from "react-native";
 
+
+import moment from 'moment';
+
 import { storage, ref, firestore, auth } from '../Firebase/firebase';
 import { collection, doc, updateDoc, 
   addDoc, serverTimestamp, getDocs, 
-  query, where, getDoc, onSnapshot, 
+  query, where, getDoc, deleteDoc, onSnapshot, 
   orderBy,Timestamp } from "firebase/firestore"; 
 
 import Task from "C:/Users/nikhi/apps/MilestoneV0000/components/Task";
@@ -118,7 +121,9 @@ const TaskScreen = ({navigation}) => {
   //Date stuff
   const [dueDate, setDueDate] = useState(null);
   const minimumDate = getToday();
-
+  const today = new Date(parseInt(minimumDate.substring(0,4)), 
+  parseInt(minimumDate.substring(5,7))-1, 
+  parseInt(parseInt(minimumDate.substring(8)), 0, 0, 0));
 
 
   //Task arrays & progress
@@ -168,7 +173,7 @@ const TaskScreen = ({navigation}) => {
               weightage: doc.get("weightage"), 
               unitsComplete: doc.get("unitsComplete"), 
               complete: doc.get("complete"),
-              dueDate: doc.get("dueDate") ? doc.get("dueDate").toDate():null,
+              dueDate: (doc.get("dueDate") ? doc.get("dueDate").toDate():null),
               //updateUnits:updateUnits,
               updateTask: updateTask,
             };
@@ -176,35 +181,42 @@ const TaskScreen = ({navigation}) => {
         });
     
         //Once all fields are fetched, update the taskItems and completedTasks arrays
-        Promise.all(fetchedTasksPromises).then((fetchedTasks) => {
+        Promise.all(fetchedTasksPromises).then(async (fetchedTasks) => {
+          const todayString = today.toISOString().slice(0,10);
           //Filter the tasks by completion
-          const completedTasks = fetchedTasks.filter(task => task.complete);
-          const incompleteTasks = fetchedTasks.filter(task => !task.complete);    
+          const completedTasks = fetchedTasks.filter(task => task?.complete  && task?.dueDate?.toISOString().slice(0,10) ==todayString);
+          const incompleteTasks = fetchedTasks.filter(task => !task?.complete);    
          
-          // update due dates set
-          fetchedTasks.forEach(task => {
-            if(task.dueDate) {
-              setDueDatesSet(prevDatesSet => {
-                prevDatesSet.add(task.dueDate);
-                return new Set(prevDatesSet);
-              });
-            }
-          });
+          // Create a set of unique due dates
+            const uniqueDueDates = new Set(fetchedTasks.map(task => {
+                //Spliting an IOSString by T gives the strings
+                //"YYYY-MM-DD" and HH:MM:SS"
+                //We can compare dates while ignoring time by just
+                //using the first of these two strings.
+              task?.dueDate.toISOString()
+            .split('T')[0]
+          }));
+
+          //Update the datesSet
+          await setDueDatesSet(uniqueDueDates)
+            console.log("Size of dueDatesSet: " + dueDatesSet.size)
+
+
           
-          setTaskItems(prevTasks => {
-            // Remove the tasks that were changed
-            const unchangedTasks = prevTasks.filter(task => !fetchedTasks.find(fetchedTask => fetchedTask.id === task.id));
-            // Then add the updated tasks
-            return [...unchangedTasks, ...incompleteTasks];
-          });
-    
-          setCompletedTasks(prevTasks => {
-            // Remove the tasks that were changed
-            const unchangedTasks = prevTasks.filter(task => !fetchedTasks.find(fetchedTask => fetchedTask.id === task.id));
-            // Then add the updated tasks
-            return [...unchangedTasks, ...completedTasks];
-          });
+            setTaskItems(prevTasks => {
+              // Remove the tasks that were changed
+              const unchangedTasks = prevTasks.filter(task => !fetchedTasks.find(fetchedTask => fetchedTask.id === task.id));
+              // Then add the updated tasks
+              return [...unchangedTasks, ...incompleteTasks];
             });
+      
+            setCompletedTasks(prevTasks => {
+              // Remove the tasks that were changed
+              const unchangedTasks = prevTasks.filter(task => !fetchedTasks.find(fetchedTask => fetchedTask.id === task.id));
+              // Then add the updated tasks
+              return [...unchangedTasks, ...completedTasks];
+            });
+        });
       });
     
       return unsubscribe;
@@ -227,15 +239,17 @@ const TaskScreen = ({navigation}) => {
     
   //This method calculates the progress on the day's tasks, which is displayed on a circular progress indicator.
   const calculateProgress = () => {
-    const totalTasks = taskItems.length + completedTasks.length;
+    //Use only today's tasks to calculate progress.
+    const todayString = today.toISOString().slice(0,10);
+    const totalTasks = todaysTasks.length + completedTasks.filter(task =>  task?.dueDate?.toISOString().slice(0,10) ==todayString).length;
     var totalWeight = 0.0;
     var completedWeight = 0.0;
     //Multiply completion by weightage to find the total progress made
-    completedTasks.forEach(task => {
+    completedTasks.filter(task =>  task?.dueDate?.toISOString().slice(0,10) ==today.toISOString().slice(0,10)).forEach(task => {
       completedWeight += (task.weightage);
     });
     totalWeight+=completedWeight;
-    taskItems.forEach(task => {
+    todaysTasks.forEach(task => {
       /*
       console.log('taskName:', task.text, typeof task.taskName);
       console.log('task.weightage:', task.weightage, typeof task.weightage);
@@ -264,7 +278,7 @@ const TaskScreen = ({navigation}) => {
     console.log("Total(weighted): " + totalWeight);
     setTotalWeight(totalWeight);
 
-    const completedPercentage = totalTasks > 0 ? (completedWeight / (totalWeight)) * 100 : 0;
+    const completedPercentage = totalTasks > 0 ? (completedWeight / (totalWeight)) * 100 : 100;
     setProgress(completedPercentage);
   };
 
@@ -315,7 +329,7 @@ const TaskScreen = ({navigation}) => {
           //Convert date string to date
           dueDate: Timestamp.fromDate(new Date(parseInt(dueDate.substring(0,4)), 
                                                parseInt(dueDate.substring(5,7))-1, 
-                                               parseInt(dueDate.substring(8)), 23, 59, 59)),
+                                               parseInt(dueDate.substring(8)), 0, 0, 0)),
         })
         .then(() => {
             console.log('Task Added!');
@@ -373,18 +387,49 @@ const TaskScreen = ({navigation}) => {
     setCompletedTasks(itemsCopy);
   }
 
-  //removeTask removes the selected task from the taskItems array
-  const removeTask = (index) => {
-    const itemsCopy = [...taskItems];
-    itemsCopy.splice(index, 1);
-    setTaskItems(itemsCopy);
+
+  //Called when user long presses on task, prompts confirmation
+  //of task deletion
+  const handleDelete = (taskId, index, complete) => {
+    Alert.alert(
+      'Delete task',
+      'Are you sure you want to delete this task?',
+      [
+        {
+          text: 'Cancel',
+          onPress: () => console.log('Cancel Pressed'),
+          style: 'cancel',
+          color: '#FF0000',
+        },
+
+        {
+          text: 'Confirm',
+          onPress: () => deletetask(taskId, index, complete),
+        },
+
+      ],
+
+      {cancelable: false}
+    );
   }
 
-  //removeCompleteTask removes the selected task from the completedTasks array
-  const removeCompleteTask = (index) => {
-    const itemsCopy = [...completedTasks];
-    itemsCopy.splice(index, 1);
-    setCompletedTasks(itemsCopy);
+
+  //delete task function is called when user confirms task deletion, 
+  //and deletes task both locally and on Firestore.
+  const deletetask = async (taskId,index,complete) => {
+    console.log('Current task Id: ', taskId)
+    const docRef = doc(firestore, "users", user?.id, "tasks", taskId);
+    const docSnap = await getDoc(docRef);
+    console.log('Current doc snapshot: ', docSnap);
+    if(docSnap){
+      //Delete the task item from the local array that it's stored in.
+      const tasksArray = complete? completedTasks : taskItems;
+      await tasksArray.splice(index, 1).then(console.log("tasksArray: "+tasksArray))
+      //Delete the doc from firestore      
+      .then(deleteDoc(doc(firestore, "users", user?.id, "tasks", taskId)).then(fetchTasks()));
+      
+      Alert.alert('Task deleted!');
+    }
   }
 
 
@@ -393,12 +438,79 @@ const TaskScreen = ({navigation}) => {
 
   }
 
+  // Helper function to render tasks for a particular date
+  function renderTasksForDate(dateTitle, tasks, key, showDateTitle, active) {
+    return (
+      <View key={key}>
+        {(dateTitle!="blank" && dateTitle!="Overdue Tasks"&&showDateTitle)&&(
+          <><Text style={styles.sectionTitle}>{moment(dateTitle, "MM/DD/YYYY").add(1,'days').format('dddd')}</Text></>
+        )}
 
+        {/*Overdue tasks title at the top of the overdue section*/}
+        {(dateTitle=="Overdue Tasks"&&key==0)&&(
+              <Text style={styles.overdueTitle}>Overdue Tasks</Text>
+        )}
+
+        {tasks.map((item, index) => (
+          (item)&&(<TouchableOpacity key={index} onPress={null} onLongPress={() => handleDelete(item.id, index, item.complete)}>
+            <Task
+              key={item.id}
+              id={item.id}
+              text={item.text}
+              priority={item.priority}
+              weightage={item.weightage}
+              units={item.units}
+              metric={item.metric}
+              unitsComplete={item.unitsComplete}
+              targetUnits={item.targetUnits}
+              complete={item.complete}
+              dueDate={item.dueDate}
+              updateTask={updateTask}
+              active={active}
+            />
+          </TouchableOpacity>)
+
+        ))
+        
+        }
+
+
+      </View>
+    );
+  }
+//Construct Maps for each category
+const overdueTasksByDate = new Map();
+const todaysTasksByDate = new Map();
+const futureTasksByDate = new Map();
+const todaysTasks = [];
+  sortedTasks.forEach(item => {
+    // Converts the date object to be a string with format yyyy-mm-dd
+    const dueDateString = item?.dueDate?.toISOString().slice(0,10); 
+    console.log("Duedatestring: "+dueDateString+", mindate: "+new Date().toISOString().slice(0,10));
+    const todayString = today.toISOString().slice(0,10);
+
+    // Determine which map to add to based on whether the task is overdue
+    const tasksMap = dueDateString < todayString ? overdueTasksByDate : (dueDateString == todayString ? todaysTasksByDate : futureTasksByDate); 
+    if (!tasksMap.has(dueDateString)) {
+      tasksMap.set(dueDateString, []);
+    }
+    
+    if(dueDateString == todayString){
+        todaysTasks.push(item);
+    }
+    tasksMap.get(dueDateString).push(item);
+  });
   
+  //Sorts the Map keys (dates) so they will be displayed in ascending order
+const sortedOverdueDates = Array.from(overdueTasksByDate.keys()).sort();
+const sortedtodaysDates = Array.from(todaysTasksByDate.keys()).sort();
+const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();  
   {/*UI*/}
   return  (
       
     <View style={styles.container}>
+
+
 
       {/*Title*/}
       <Text style= {styles.titleWrapper}>{user ? "Hi "+user.values.first+"!" : "Your Tasks: "}</Text>
@@ -424,86 +536,87 @@ const TaskScreen = ({navigation}) => {
           {(fill) => <Animated.Text style={styles.progressText}>{`${Math.round(progress)}%`}</Animated.Text>}
         </AnimatedCircularProgress>
 
-
-        {/*Today's tasks header*/}
         <View style={styles.taskWrapper}>  
-            <View style={styles.todaysTasksContainer}>
-                <Text style={styles.sectionTitle}>Today's Tasks</Text>
+            <View style={styles.items}>
+              {/*This is where the tasks will go*/}
+              {/*Iterate through sortedItems and display all tasks*/}
+              {/* Tasks grouped by date */}
+
+              {/* Overdue Tasks */}
+              {sortedOverdueDates.map((dateString, index) => {
+                const tasksForThisDate = overdueTasksByDate.get(dateString);
+                const formattedDateString = new Date(dateString).toLocaleDateString(); // Format the date string as MM/DD/YYYY
+
+                return renderTasksForDate("Overdue Tasks", tasksForThisDate, index, true, true);
+              })}
+
+          {/*Today's tasks header*/}
+              <View style={styles.todaysTasksContainer}>
+                <Text style={styles.mediumTitle}>Today's Tasks</Text>
                 {/*Add task button*/}
                 <TouchableOpacity onPress={() => handleSnapPress(2)}>
                     <View style={styles.addSheetOpenerWrapper}>
                         <Text style={styles.addSheetOpenerText}>Add</Text>
                     </View>
                 </TouchableOpacity>
-            </View>
-            {/* Iterating through dueDatesSet */}
-            {Array.from(dueDatesSet).sort().map((date, index) => {
-                //Spliting an IOSString by T gives the strings
-                //"YYYY-MM-DD" and HH:MM:SS"
-                //We can compare dates while ignoring time by just
-                //using the first of these two strings.
-                const tasksForThisDate = sortedTasks.filter
-                (task => task.dueDate && task.dueDate.toISOString().split('T')[0] 
-                === date.toISOString().split('T')[0]);
+              </View>
+              {/*Message that appears if there are no remaining tasks*/}
+              {sortedtodaysDates.length === 0 ? (
+                <Text style={styles.smallMessage}>
+                You've completed all of your tasks today!
+                </Text>
+              ) : null}
 
-                return (
-                    <View key={index}>
-                        {/* Header for this date */}
-                        <Text style={styles.sectionTitle}>{date.toISOString().split('T')[0]}'s Tasks</Text>
+              {/* Today's Tasks */}
+              {sortedtodaysDates.map((dateString, index) => {
+                const tasksForThisDate = todaysTasksByDate.get(dateString);
+                const formattedDateString = new Date(dateString).toLocaleDateString(); // Format the date string as MM/DD/YYYY
 
-                        {/* Iterate through tasks for this date */}
-                        {tasksForThisDate.map((item, index) => {
-                            return (
-                                <TouchableOpacity key={index} onPress={null} onLongPress={() => removeTask(index)}>
-                                <Task
-                                    key={item.id}
-                                    id={item.id}
-                                    text={item.text}
-                                    priority={item.priority}
-                                    weightage={item.weightage}
-                                    units={item.units}
-                                    metric={item.metric}
-                                    unitsComplete={item.unitsComplete}
-                                    targetUnits={item.targetUnits}
-                                    complete={item.complete}
-                                    dueDate={item.dueDate}
-                                    updateTask={updateTask}
-                                />
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-                );
-            })}
+                return renderTasksForDate(`${formattedDateString}`, tasksForThisDate, index, false, true);
+              })}
+
+              {(futureTasksByDate.size>0)&&(<><Text style={styles.mediumTitle}>Upcoming Tasks</Text></>
+)}
+
+              {/* Future Tasks */}
+              {sortedFutureDates.map((dateString, index) => {
+                const tasksForThisDate = futureTasksByDate.get(dateString);
+                const formattedDateString = new Date(dateString).toLocaleDateString(); // Format the date string as MM/DD/YYYY
+
+                return renderTasksForDate(formattedDateString, tasksForThisDate, index, true, false);
+              })}
 
             {/* Completed Tasks */}
             {completedTasks.length === 0 ? null : (
-                <Text style={styles.sectionTitle} paddingTop = {15} paddingBottom={30}>Completed</Text>
+              <Text style={styles.mediumTitle} paddingTop={15} paddingBottom={30}>Completed</Text>
             )}
 
             {/* Iterate through completedTasks and display all tasks */}
-            {completedTasks.map((item, index) => {
-                return (
-                    <TouchableOpacity key={index} onPress={null} onLongPress={() => removeCompleteTask(index)}>
-                    <Task                       
-                        key={item.id}
-                        id={item.id}
-                        text={item.text}
-                        priority={item.priority}
-                        weightage={item.weightage}
-                        units={item.units}
-                        metric={item.metric}
-                        targetUnits={item.targetUnits}
-                        unitsComplete={item.unitsComplete}
-                        complete={item.complete}
-                        dueDate={item.dueDate}
-                        updateTask={updateTask}
-                    />
-                    </TouchableOpacity>
-                );
-            })}
+            {completedTasks.map((item, index) => (
+              (item)&&(<TouchableOpacity key={index} onPress={null} onLongPress={() => handleDelete(item.id)}>
+                <Task
+                  key={item.id}
+                  id={item.id}
+                  text={item.text}
+                  priority={item.priority}
+                  weightage={item.weightage}
+                  units={item.units}
+                  metric={item.metric}
+                  targetUnits={item.targetUnits}
+                  unitsComplete={item.unitsComplete}
+                  complete={item.complete}
+                  dueDate={item.dueDate}
+                  updateTask={updateTask}
+                  active={true}
+                />
+              </TouchableOpacity>)
+            ))}
+          </View>
+          <TouchableOpacity style={styles.button} onPress={handleSignOut}>
+            <Text style={styles.buttonText}>Sign out</Text>
+          </TouchableOpacity>
         </View>
-            
+
 
       </ScrollView>
 
@@ -536,18 +649,17 @@ const TaskScreen = ({navigation}) => {
                       ref={inputRef}
                       style={styles.input}
                       placeholder={'Write a task'}
+                      placeholderTextColor= {'#FFF'}
                       value={task}
                       width={'80%'}
                       onChangeText={text => setTask(text)}
                       />
                       <TouchableOpacity onPress={() => handleAddTask()}>
-                        <View style={styles.addWrapper}>
-                          <Ionicons name="ios-add-circle" color={'#220c5e'} size={58}/>
-                        </View>
+                          <Ionicons name="ios-add-circle" color={'#301087'} size={62}/>
                       </TouchableOpacity>
                     </View>
                 
-                    <View style={styles.whiteRoundedBox}>
+                    <View style={styles.roundedBox}>
                       {/*Priority picker, each priority corresponds to a numerical value that is used to sort the tasks when displayed*/}
                       <Text style={styles.pickerLabel}>Priority:</Text>
                       <RNPickerSelect
@@ -612,7 +724,7 @@ const TaskScreen = ({navigation}) => {
                       {/*If the metric type is incremental, the user will be able to set the amount and type of units.*/}
                       {metricType === "incremental" && (
                         <>
-                          <View style={styles.whiteRoundedBox}>
+                          <View style={styles.roundedBox}>
 
                             <Text style={styles.addTaskSubheading}>Goal: </Text>
 
@@ -626,8 +738,9 @@ const TaskScreen = ({navigation}) => {
                             />
                             <TextInput
                               style={styles.unitsInput}
-                              maxWidth={'34%'}
+                              maxWidth={'32%'}
                               placeholder="Units"
+                              placeholderTextColor= {'#FFF'}
                               onChangeText={(text) => setUnits(text)}
                               value={units}
                             />
@@ -638,13 +751,21 @@ const TaskScreen = ({navigation}) => {
                         </>
                       )}
 
-                      <View style={styles.whiteRoundedBox}>
+                      <View style={styles.roundedBox}>
                         <Text style={styles.addTaskSubheading}>Weightage: </Text>
                         <RNPickerSelect
                           style={pickerSelectStyles}
                           value={weightage}
                           onValueChange={(value) => setWeightage(value)}
-                          items={[...Array(100)].map((_, i) => ({ label: `${100 - i}%`, value: 100 - i }))}
+                          items={[{ label: '1 (Lowest)', value: 1},
+                          { label: '2', value: 2 },
+                          { label: '3', value: 3 },
+                          { label: '5', value: 5 },
+                          { label: '8', value: 8 },
+                          { label: '13', value: 13 },
+                          { label: '21', value: 21 },
+                          { label: '34 (Highest)', value: 34 }]}
+
                           placeholder={{ label: 'Select', value: null }}
 
                         />
@@ -708,7 +829,7 @@ const styles = StyleSheet.create({
     paddingHorizontal:20,
     backgroundColor: '#090C08',    
     color: '#FFF',
-    fontSize: 39,
+    fontSize: 42,
     fontWeight: 'bold',
 
   },
@@ -726,10 +847,24 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#FFF',
+    marginBottom: 20,
+  },
+
+  mediumTitle: {
+    fontSize: 34,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+
+  overdueTitle: {
+    fontSize: 34,
+    fontWeight: 'bold',
+    color: '#FF0000',
+    marginBottom: 20,
   },
 
   items: {
-    marginTop: 30,
+    marginTop: 20,
   },
 
   writeTaskWrapper: {
@@ -742,13 +877,15 @@ const styles = StyleSheet.create({
   input: {
     paddingVertical: 15,
     paddingHorizontal: 15,
-    backgroundColor: '#FFF',
     borderRadius: 60,
-    borderColor: '#C0C0C0',
+    borderColor: '#FFF',
     borderWidth: 1,
     width: 280,
     marginRight: 15,
+    color: '#FFA25B', 
+    keyboardAppearance: 'dark',  
   },
+
   button: {
     width: '60%',
     alignItems: 'center',
@@ -770,20 +907,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFA25B',
   },
-  addWrapper: {
-    width: 57,
-    height: 57,
-    backgroundColor: '#0c0129',
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderColor: '#C0C0C0',
-    paddingLeft: 2,
-  },
+
   
   addSheetOpenerWrapper: {
-    width: 90,
-    height: 40,
+    width: 100,
+    height: 42,
     borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
@@ -801,7 +929,7 @@ const styles = StyleSheet.create({
   },
 
   addSheetOpenerText: {
-    fontSize: 20,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#FFA25B',
   },
@@ -874,9 +1002,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 20,
   },
 
-  whiteRoundedBox: {
+  roundedBox: {
     borderRadius: 60,
     borderWidth: 1,
     borderColor: '#FFF',
@@ -958,6 +1087,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     marginLeft: 6,
     color: '#FFA25B',
+    keyboardAppearance: 'dark',
   },
 });
 
@@ -969,6 +1099,7 @@ const pickerSelectStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     color: '#FFA25B',
+    keyboardAppearance: 'dark',
   },
   inputAndroid: {
     borderWidth: 1,
@@ -977,7 +1108,7 @@ const pickerSelectStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     color: '#FFA25B',
-
+    keyboardAppearance: 'dark',
   },
 });
 
@@ -987,12 +1118,13 @@ const pickerSelectStylesNoBorder = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     color: '#FFA25B',
+    keyboardAppearance: 'dark',
   },
   inputAndroid: {
     borderRadius: 5,
     paddingHorizontal: 10,
     paddingVertical: 5,
     color: '#FFA25B',
-
+    keyboardAppearance: 'dark',
   },
 });

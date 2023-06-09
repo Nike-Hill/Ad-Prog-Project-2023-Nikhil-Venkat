@@ -37,6 +37,7 @@ const Task = (props) => {
     const getComplete = () => {
         return complete;
     }
+    var active = false;
     
     var id = "";
 
@@ -57,7 +58,7 @@ const Task = (props) => {
     complete= props.complete;
     //dueDate = props.dueDate;
     id = props.id;
-
+    active = props.active;
 
     //completion=props.completion;
     useEffect(()=>{
@@ -131,6 +132,7 @@ const Task = (props) => {
     unitsComplete = props.unitsComplete;
     complete= props.complete;
     dueDate = props.dueDate;
+    active = props.active;
 
 
 
@@ -190,9 +192,9 @@ const Task = (props) => {
 
                         <View style={styles.contentRow}>
                             <TextTicker
-                                minWidth={'35%'}
+                                minWidth={'100%'}
 
-                                maxWidth={'35%'}
+                                maxWidth={'100%'}
                                 duration={500+200*(taskName.length)}
                                 animationType={'scroll'}
                                 //loop
@@ -201,10 +203,13 @@ const Task = (props) => {
                                 marqueeDelay={0}
                                 ellipsizeMode={'clip'}
                             >
-                            {taskName.length<=7 ? `${taskName}                                     `: ` ${taskName}                                     ${taskName}                                     ${taskName}                                     `}
+                            {taskName.length<=30 ? `${taskName}`: ` ${taskName}                                     ${taskName}                                     ${taskName}                                     `}
 
                             </TextTicker>
 
+                        </View>
+
+                        <View style={styles.contentRow}>
                             <TextTicker
 
                                 duration={3000}
@@ -216,14 +221,15 @@ const Task = (props) => {
                                 repeatSpacer={0}
                                 marqueeDelay={0}
                                 style={styles.priorityText(priorityColor)}
-                                minWidth={'65%'}
-                                maxWidth={'65%'}
+                                minWidth={'100%'}
+                                maxWidth={'100%'}
 
-                            >
+                                >
                                 {'(' + priorityText + ', due:' + format(dueDate, 'MM/dd/yyyy')+ ')                                                   '}
 
                             </TextTicker>
                         </View>
+
 
                         {/*If the metric is incremental and the task is incomplete, the user will be able to change the amount of units complete/*/}
                         {(metric === ("incremental")) && (
@@ -236,11 +242,11 @@ const Task = (props) => {
                                     </Text>
 
                                     <View style={styles.whiteRoundedBox}>
-                                        <TouchableOpacity style={styles.circularButton} onPress={handleSubtract}>
+                                        <TouchableOpacity style={styles.circularButton} onPress={active?handleSubtract:null}>
                                             <Text style={styles.buttonText}>-</Text>
                                         </TouchableOpacity>
 
-                                        <TouchableOpacity style={styles.circularButton} onPress={handleAdd}>
+                                        <TouchableOpacity style={styles.circularButton} onPress={active?handleAdd:null}>
                                             <Text style={styles.buttonText}>+</Text>
                                         </TouchableOpacity>
                                     </View>
@@ -270,6 +276,7 @@ const Task = (props) => {
                     <Checkbox 
                         value={complete} 
                         color={complete? green:blue}
+                        disabled={!active}
                         onValueChange={async (newValue) => {
                             // Update 'complete' and 'unitsComplete' in Firestore using updateTask function passed from TasksScreen.js
                             updateTask(id, { complete: !complete }, "Complete: " + (!complete));

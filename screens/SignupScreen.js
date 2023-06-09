@@ -109,6 +109,7 @@ export default function SignupScreen({ navigation }) {
               placeholder='First Name'
               onChangeText={text => handleChange(text, "firstName")} 
               placeholderTextColor="#a1a1a1" 
+              keyboardAppearance='dark'
               />
 
             <TextInput
@@ -117,6 +118,7 @@ export default function SignupScreen({ navigation }) {
               placeholder='Last Name'
               onChangeText={text => handleChange(text, "lastName")} 
               placeholderTextColor="#a1a1a1" 
+              keyboardAppearance='dark'
               />
           </View>
 
@@ -126,6 +128,7 @@ export default function SignupScreen({ navigation }) {
             placeholder='Email Address'
             onChangeText={text => handleChange(text, "email")} 
             placeholderTextColor="#a1a1a1" 
+            keyboardAppearance='dark'
             />
 
 
@@ -136,6 +139,7 @@ export default function SignupScreen({ navigation }) {
             onChangeText={text => handleChange(text, "pwd")}
             secureTextEntry 
             placeholderTextColor="#a1a1a1" 
+            keyboardAppearance='dark'
             />
           <TextInput
             style={styles.roundedBox}
@@ -143,7 +147,7 @@ export default function SignupScreen({ navigation }) {
             onChangeText={text => handleChange(text, "pwd2")}
             secureTextEntry 
             placeholderTextColor="#a1a1a1" 
-
+            keyboardAppearance='dark'
             />
         
 
