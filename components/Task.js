@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import Checkbox from  'expo-checkbox';
 import TextTicker from 'react-native-text-ticker'
 import { format } from 'date-fns';
-
+import moment from 'moment';
 
 
 
@@ -225,7 +225,7 @@ const Task = (props) => {
                                 maxWidth={'100%'}
 
                                 >
-                                {'(' + priorityText + ', due:' + format(dueDate, 'MM/dd/yyyy')+ ')                                                   '}
+                                {'(' + priorityText + ', due ' + moment(dueDate).fromNow()+ ')                                                   '}
 
                             </TextTicker>
                         </View>

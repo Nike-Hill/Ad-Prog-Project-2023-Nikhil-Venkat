@@ -5,7 +5,7 @@ import {View, Text, Button, StyleSheet} from 'react-native';
 const AnalyticsScreen = () => {
     return (
         <View style = {styles.container}>
-            <Text>AnalyticsScreen</Text>
+            <Text style={styles.text}>AnalyticsScreen</Text>
             <Button
                 title="Click Here"
                 onPress={() => alert('Button Clicked!')}
@@ -18,9 +18,14 @@ const AnalyticsScreen = () => {
 export default AnalyticsScreen;
 
 const styles = StyleSheet.create({
+    text: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 18,
+    },
     container: {
       flex: 1,
-      backgroundColor: '#E8EAED',
+      backgroundColor: '#0c0129',
       justifyContent: 'center',
       alignItems: 'center',
     },

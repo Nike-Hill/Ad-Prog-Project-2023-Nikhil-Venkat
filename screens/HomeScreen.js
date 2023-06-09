@@ -5,7 +5,7 @@ import {View, Text, Button, StyleSheet} from 'react-native';
 const HomeScreen = () => {
     return (
         <View style = {styles.container}>
-            <Text>HomeScreen</Text>
+            <Text style={styles.text}>HomeScreen</Text>
             <Button
                 title="Click Here"
                 onPress={() => alert('Button Clicked!')}
@@ -18,9 +18,14 @@ const HomeScreen = () => {
 export default HomeScreen;
 
 const styles = StyleSheet.create({
+    text: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 18,
+    },
     container: {
       flex: 1,
-      backgroundColor: '#E8EAED',
+      backgroundColor: '#0c0129',
       justifyContent: 'center',
       alignItems: 'center',
     },

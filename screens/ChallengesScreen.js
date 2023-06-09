@@ -5,7 +5,7 @@ import {View, Text, Button, StyleSheet} from 'react-native';
 const ChallengesScreen = () => {
     return (
         <View style = {styles.container}>
-            <Text>ChallengesScreen</Text>
+            <Text  style={styles.text}>ChallengesScreen</Text>
             <Button
                 title="Click Here"
                 onPress={() => alert('Button Clicked!')}
@@ -18,9 +18,14 @@ const ChallengesScreen = () => {
 export default ChallengesScreen;
 
 const styles = StyleSheet.create({
+    text: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 18,
+    },
     container: {
       flex: 1,
-      backgroundColor: '#E8EAED',
+      backgroundColor: '#0c0129',
       justifyContent: 'center',
       alignItems: 'center',
     },

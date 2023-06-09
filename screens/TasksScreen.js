@@ -443,7 +443,8 @@ const TaskScreen = ({navigation}) => {
     return (
       <View key={key}>
         {(dateTitle!="blank" && dateTitle!="Overdue Tasks"&&showDateTitle)&&(
-          <><Text style={styles.sectionTitle}>{moment(dateTitle, "MM/DD/YYYY").add(1,'days').format('dddd')}</Text></>
+          <><Text style={styles.sectionTitle}>{moment(dateTitle, "MM/DD/YYYY").add(1,'days')
+          .add(23,  'hours').add(59, 'minutes').calendar()}</Text></>
         )}
 
         {/*Overdue tasks title at the top of the overdue section*/}
