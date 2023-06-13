@@ -13,9 +13,7 @@ import MainTabScreen from './screens/MainTabScreen.js';
 const Stack = createStackNavigator();
 
 export default function App() {
-
-
-
+  
   return (
     //Return navigator with login screen, sign up screen, and main app.
     <NavigationContainer>

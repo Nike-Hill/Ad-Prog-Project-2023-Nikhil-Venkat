@@ -1,4 +1,4 @@
-//Import statements
+//Imports
 import React, {useCallback, useRef, useMemo, useState, useEffect } from "react";
 import {
   KeyboardAvoidingView,
@@ -42,10 +42,11 @@ import { getToday, getFormatedDate } from 'react-native-modern-datepicker';
 
 
 //Export
-const TaskScreen = ({navigation}) => {
+const TasksScreen = ({navigation}) => {
   const [user,setUser] = useState(null)
 
- 
+  const todaysTasks = [];
+
   // Fetch the current user's data
   useEffect(() => {
     const fetchUser = async () => {
@@ -86,7 +87,7 @@ const TaskScreen = ({navigation}) => {
             .then(()=> {
               navigation.replace("Login")
             })
-            .catch(error=>alert(error.message))
+            .catch(error=>alert('Error signing out: ', error.message))
     }
 
   {/*Dimensions constants*/}
@@ -100,7 +101,7 @@ const TaskScreen = ({navigation}) => {
 
   
   //These are all of the possible heights of the bottom sheet.
-  const snapPoints = ["1%", "20%", "65%"];
+  const snapPoints = ["1%", "23%", "65%"];
 
   //This method moves the bottomSheet to the selected position.
   const handleSnapPress = useCallback((index) => {
@@ -137,10 +138,10 @@ const TaskScreen = ({navigation}) => {
 
   //Sort Tasks by priority
   const sortedTasks = taskItems.sort((a, b) => a.priority - b.priority);
-  const [progress, setProgress] = useState(0);
+
 
     //This method fetches tasks from firestore
-    const fetchTasks = () => {
+    const fetchTasks = async () => {
       console.log("Fetching tasks...");
       //Make a query for the user's tasks
       while(!user){
@@ -149,81 +150,44 @@ const TaskScreen = ({navigation}) => {
       const tasksCollection = collection(firestore, "users", user.id, "tasks");
       const tasksQuery = query(tasksCollection, orderBy("createdTime", "desc"));
 
-      //Set up a listener for query
-      const unsubscribe = onSnapshot(tasksQuery, (querySnapshot) => {
-        //Fetch all of the tasks fields
-        querySnapshot.forEach((doc) => {
-          console.log(`${doc.id} => ${doc.get("taskName")} ${doc.get("metric")}`);
-        });
+      // get docs
+      const querySnapshot = await getDocs(tasksQuery);
+      const fetchedTasks = [];
 
-        //Make promises for all of the fields of all of the tasks instead of fetching them normally
-        //Because it takes a small but significant amount of time to fix them.
-        const fetchedTasksPromises = querySnapshot.docChanges().map(async (change) => {
-          if (change.type === "added" || change.type === "modified") {
-            const doc = change.doc;
-            
-            return {
-              id:doc.id,
-              createdTime: doc.get("createdTime"),
-              text: doc.get("taskName"),
-              priority: doc.get("priority"),
-              metric: doc.get("metric"),
-              units: doc.get("units"), 
-              targetUnits: doc.get("targetUnits"), 
-              weightage: doc.get("weightage"), 
-              unitsComplete: doc.get("unitsComplete"), 
-              complete: doc.get("complete"),
-              dueDate: (doc.get("dueDate") ? doc.get("dueDate").toDate():null),
-              //updateUnits:updateUnits,
-              updateTask: updateTask,
-            };
-          }
-        });
-    
-        //Once all fields are fetched, update the taskItems and completedTasks arrays
-        Promise.all(fetchedTasksPromises).then(async (fetchedTasks) => {
-          const todayString = today.toISOString().slice(0,10);
-          //Filter the tasks by completion
-          const completedTasks = fetchedTasks.filter(task => task?.complete  && task?.dueDate?.toISOString().slice(0,10) ==todayString);
-          const incompleteTasks = fetchedTasks.filter(task => !task?.complete);    
-         
-          // Create a set of unique due dates
-            const uniqueDueDates = new Set(fetchedTasks.map(task => {
-                //Spliting an IOSString by T gives the strings
-                //"YYYY-MM-DD" and HH:MM:SS"
-                //We can compare dates while ignoring time by just
-                //using the first of these two strings.
-              task?.dueDate.toISOString()
-            .split('T')[0]
-          }));
+      for (let change of querySnapshot.docChanges()) {
+        if (change.type === "added" || change.type === "modified") {
+          const doc = change.doc;
 
-          //Update the datesSet
-          await setDueDatesSet(uniqueDueDates)
-            console.log("Size of dueDatesSet: " + dueDatesSet.size)
+          //Push data of current task to fetchedTasks array
+          fetchedTasks.push({
+            id:doc.id,
+            createdTime: doc.get("createdTime"),
+            text: doc.get("taskName"),
+            priority: doc.get("priority"),
+            metric: doc.get("metric"),
+            units: doc.get("units"), 
+            targetUnits: doc.get("targetUnits"), 
+            weightage: doc.get("weightage"), 
+            unitsComplete: doc.get("unitsComplete"), 
+            complete: doc.get("complete"),
+            dueDate: (doc.get("dueDate") ? doc.get("dueDate").toDate():null),
+            updateTask: updateTask,         
+           });
+        }
+      }
 
-
-          
-            setTaskItems(prevTasks => {
-              // Remove the tasks that were changed
-              const unchangedTasks = prevTasks.filter(task => !fetchedTasks.find(fetchedTask => fetchedTask.id === task.id));
-              // Then add the updated tasks
-              return [...unchangedTasks, ...incompleteTasks];
-            });
-      
-            setCompletedTasks(prevTasks => {
-              // Remove the tasks that were changed
-              const unchangedTasks = prevTasks.filter(task => !fetchedTasks.find(fetchedTask => fetchedTask.id === task.id));
-              // Then add the updated tasks
-              return [...unchangedTasks, ...completedTasks];
-            });
-        });
-      });
-    
-      return unsubscribe;
+      //Update task arrays
+      const todayString = today.toISOString().slice(0,10);
+      const completedTasks = fetchedTasks.filter(task => task?.complete && 
+        task?.dueDate?.toISOString().slice(0,10) == todayString);
+      const incompleteTasks = fetchedTasks.filter(task => !task?.complete);
+      setTaskItems(incompleteTasks);
+      setCompletedTasks(completedTasks);
     };
+    
+    
         
-
-    //Continuously fetch tasks
+    //Fetch tasks once user is fetched
     useEffect(() => {
       console.log("user data changed, refetching tasks")
       if (user) {
@@ -233,74 +197,21 @@ const TaskScreen = ({navigation}) => {
     }, [user]);  //Runs when user data changes
     
     
-    
-
-
-    
-  //This method calculates the progress on the day's tasks, which is displayed on a circular progress indicator.
-  const calculateProgress = () => {
-    //Use only today's tasks to calculate progress.
-    const todayString = today.toISOString().slice(0,10);
-    const totalTasks = todaysTasks.length + completedTasks.filter(task =>  task?.dueDate?.toISOString().slice(0,10) ==todayString).length;
-    var totalWeight = 0.0;
-    var completedWeight = 0.0;
-    //Multiply completion by weightage to find the total progress made
-    completedTasks.filter(task =>  task?.dueDate?.toISOString().slice(0,10) ==today.toISOString().slice(0,10)).forEach(task => {
-      completedWeight += (task.weightage);
-    });
-    totalWeight+=completedWeight;
-    todaysTasks.forEach(task => {
-      /*
-      console.log('taskName:', task.text, typeof task.taskName);
-      console.log('task.weightage:', task.weightage, typeof task.weightage);
-      console.log('task.completion:', task.completion, typeof task.completion);
-      console.log('completedWeight:', completedWeight, typeof completedWeight);
-      console.log("----------------------------------------------------------");
-      console.log("                                                           ");
-      */
-
-      totalWeight += (task.weightage);
-      if(task.metric=="incremental"){
-        /*
-        console.log("Adding progress of "+task.taskName+ 
-        " (Weightage " + task.weightage+", completion " +task.completion+")");
-        console.log("(unitsComplete: "+task.unitsComplete+", targetUnits: "+task.targetUnits+")");
-        */
-        completedWeight += (task.weightage*task.unitsComplete/task.targetUnits);
-
-      }
-    });
-
-
-    //Calculate Progress by dividing the tasks complete by the total tasks, adjusting both for weightage
-    console.log("Progress:");
-    console.log("Completed(weighted): " + completedWeight);
-    console.log("Total(weighted): " + totalWeight);
-    setTotalWeight(totalWeight);
-
-    const completedPercentage = totalTasks > 0 ? (completedWeight / (totalWeight)) * 100 : 100;
-    setProgress(completedPercentage);
-  };
-
-
-  //Calculates progress whenever taskItems or completedTasks is changed.
-  useEffect(() => {
-    console.log("Calculating progress...")
-    calculateProgress();
-  }, [taskItems, completedTasks]);
-
   {/*Method passed to each task to update data in firestore whenever the tasks' data is modified.*/}
   const updateTask = async (taskId, updatedData, updatedDataString) => {
     const taskRef = doc(firestore, "users", user.id, "tasks", taskId);
   
     try {
       //Update Firestore
-      console.log('Updating task '+taskId.toString()+' with data '+updatedDataString);
+      console.log('Updating task '+taskId.toString()+
+      ' with data '+updatedDataString);
+      
       await updateDoc(taskRef, updatedData).then(()=>fetchTasks()).then(() => {
 
 
       })
-      console.log('Updated task '+taskId.toString()+' with data '+updatedDataString);
+      console.log('Updated task '+taskId.toString()+
+      ' with data '+updatedDataString);
       console.log('Task Updated!');
     } catch (error) {
       console.error("Error updating task: ", error);
@@ -313,7 +224,8 @@ const TaskScreen = ({navigation}) => {
   //This method adds the new task to the Firestore if the
   const handleAddTask = async () => {
     Keyboard.dismiss();
-    if (task&&taskPriority&& metricType && weightage && !(metricType==="incremental" && (!units || !targetUnits)) && dueDate) {
+    if (task&&taskPriority&& metricType && weightage && !(metricType===
+      "incremental" && (!units || !targetUnits)) && dueDate) {
       //UUIDGenerator.getRandomUUID().then((uuid) => {
         console.log("Adding task...")
         await addDoc(collection(firestore, "users", user.id, "tasks"), {
@@ -356,37 +268,13 @@ const TaskScreen = ({navigation}) => {
       //});
     {/*Notify user if they didn't fill out all fields*/}
     } else{
-      alert("Please fill out all fields");
+      alert("Please fill out all fields"); 
+      handleSnapPress(2);
+
     }
 
   };
   
-  //completeTask moves the selected task from the taskItems array to the completedTasks array
-  const completeTask = (index) => {
-    const itemsCopy = [...taskItems];
-    const completedTask = itemsCopy.splice(index, 1);
-    setCompletedTasks([...completedTasks, ...completedTask]);
-    setTaskItems(itemsCopy);
-  };
-  
-
-  const completeTasks = () => {
-    const itemsCopy = taskItems.filter(task => !task.complete);
-    const completedTasksCopy = [...completedTasks, ...taskItems.filter(task => task.complete)];
-
-    setTaskItems(itemsCopy);
-    setCompletedTasks(completedTasksCopy);
-};
-
-
-  //uncompleteTask moves the selected task from the completedTasks array to the taskItems array
-  const uncompleteTask = (index) => {
-    const itemsCopy = [...completedTasks];
-    const uncompletedTask = itemsCopy.splice(index, 1);
-    setTaskItems([...taskItems, ...uncompletedTask]);
-    setCompletedTasks(itemsCopy);
-  }
-
 
   //Called when user long presses on task, prompts confirmation
   //of task deletion
@@ -424,9 +312,11 @@ const TaskScreen = ({navigation}) => {
     if(docSnap){
       //Delete the task item from the local array that it's stored in.
       const tasksArray = complete? completedTasks : taskItems;
-      await tasksArray.splice(index, 1).then(console.log("tasksArray: "+tasksArray))
+      await tasksArray.splice(index, 1)
+      .then(console.log("tasksArray: "+tasksArray))
       //Delete the doc from firestore      
-      .then(deleteDoc(doc(firestore, "users", user?.id, "tasks", taskId)).then(fetchTasks()));
+      .then(deleteDoc(doc(firestore, "users", user?.id, "tasks", taskId))
+      .then(fetchTasks()));
       
       Alert.alert('Task deleted!');
     }
@@ -443,8 +333,8 @@ const TaskScreen = ({navigation}) => {
     return (
       <View key={key}>
         {(dateTitle!="blank" && dateTitle!="Overdue Tasks"&&showDateTitle)&&(
-          <><Text style={styles.sectionTitle}>{moment(dateTitle, "MM/DD/YYYY").add(1,'days')
-          .add(23,  'hours').add(59, 'minutes').calendar()}</Text></>
+          <><Text style={styles.sectionTitle}>{moment(dateTitle, "MM/DD/YYYY")
+          .add(1,'days').add(23,  'hours').add(59, 'minutes').calendar()}</Text></>
         )}
 
         {/*Overdue tasks title at the top of the overdue section*/}
@@ -453,7 +343,10 @@ const TaskScreen = ({navigation}) => {
         )}
 
         {tasks.map((item, index) => (
-          (item)&&(<TouchableOpacity key={index} onPress={null} onLongPress={() => handleDelete(item.id, index, item.complete)}>
+          (item)&&(
+          //Render the task
+          <TouchableOpacity key={index} onPress={null} 
+          onLongPress={() => handleDelete(item.id, index, item.complete)}>
             <Task
               key={item.id}
               id={item.id}
@@ -479,11 +372,11 @@ const TaskScreen = ({navigation}) => {
       </View>
     );
   }
-//Construct Maps for each category
-const overdueTasksByDate = new Map();
-const todaysTasksByDate = new Map();
-const futureTasksByDate = new Map();
-const todaysTasks = [];
+
+  //Construct Maps for each task category
+  const overdueTasksByDate = new Map();
+  const todaysTasksByDate = new Map();
+  const futureTasksByDate = new Map();
   sortedTasks.forEach(item => {
     // Converts the date object to be a string with format yyyy-mm-dd
     const dueDateString = item?.dueDate?.toISOString().slice(0,10); 
@@ -491,7 +384,9 @@ const todaysTasks = [];
     const todayString = today.toISOString().slice(0,10);
 
     // Determine which map to add to based on whether the task is overdue
-    const tasksMap = dueDateString < todayString ? overdueTasksByDate : (dueDateString == todayString ? todaysTasksByDate : futureTasksByDate); 
+    const tasksMap = dueDateString < todayString ? overdueTasksByDate : 
+    (dueDateString == todayString ? todaysTasksByDate : futureTasksByDate); 
+
     if (!tasksMap.has(dueDateString)) {
       tasksMap.set(dueDateString, []);
     }
@@ -499,13 +394,65 @@ const todaysTasks = [];
     if(dueDateString == todayString){
         todaysTasks.push(item);
     }
+
+    //Add the task to the array mapped to its due date.
     tasksMap.get(dueDateString).push(item);
   });
   
   //Sorts the Map keys (dates) so they will be displayed in ascending order
-const sortedOverdueDates = Array.from(overdueTasksByDate.keys()).sort();
-const sortedtodaysDates = Array.from(todaysTasksByDate.keys()).sort();
-const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();  
+  const sortedOverdueDates = Array.from(overdueTasksByDate.keys()).sort();
+  const sortedtodaysDates = Array.from(todaysTasksByDate.keys()).sort();
+  const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();  
+
+    //calculates the progress on the day's tasks, 
+    //which is displayed on a circular progress indicator,
+    const progress = React.useMemo(() => {
+      //Use only today's tasks to calculate progress.
+      const todayString = today.toISOString().slice(0,10);
+      const totalTasks = todaysTasks.length + completedTasks.filter(task =>  
+        task?.dueDate?.toISOString().slice(0,10) ==todayString).length;
+
+      //Account for weightage
+      var totalWeight = 0.0;
+      var completedWeight = 0.0;
+      //Multiply completion by weightage to find the total progress made
+      completedTasks.filter(task =>  task?.dueDate?.toISOString().slice(0,10)
+       == today.toISOString().slice(0,10)).forEach(task => {
+        completedWeight += (task.weightage);
+      });
+      totalWeight+=completedWeight;
+      todaysTasks.forEach(task => {
+        /*
+        console.log('taskName:', task.text, typeof task.taskName);
+        console.log('task.weightage:', task.weightage, typeof task.weightage);
+        console.log('task.completion:', task.completion, typeof task.completion);
+        console.log('completedWeight:', completedWeight, typeof completedWeight);
+        console.log("----------------------------------------------------------");
+        console.log("                                                           ");
+        */
+  
+        totalWeight += (task.weightage);
+        if(task.metric=="incremental"){
+          //If the task is incremental, factor in its completion.
+          completedWeight += (task.weightage*task.unitsComplete/task.targetUnits);
+  
+        }
+      });
+  
+  
+      //Calculate Progress by dividing the tasks complete by the total tasks, adjusting both for weightage
+      console.log("Progress:");
+      console.log("Completed(weighted): " + completedWeight);
+      console.log("Total(weighted): " + totalWeight);
+      setTotalWeight(totalWeight);
+      //If any tasks exist, set the progress to the percentage complete, 
+      //and if not, set it to 100%
+      const completedPercentage = totalTasks > 0 ? 
+      (completedWeight / (totalWeight)) * 100 : 100;
+      
+      return completedPercentage;
+    }, [taskItems, completedTasks])
+
   {/*UI*/}
   return  (
       
@@ -514,7 +461,8 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
 
 
       {/*Title*/}
-      <Text style= {styles.titleWrapper}>{user ? "Hi "+user.values.first+"!" : "Your Tasks: "}</Text>
+      <Text style= {styles.titleWrapper}>{user ? "Hi "+user.values.first+"!" 
+      : "Your Tasks: "}</Text>
 
       <ScrollView> 
         {/*Today's Tasks*/}
@@ -534,7 +482,10 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
           backgroundColor="#3d5875"
           animated
         >
-          {(fill) => <Animated.Text style={styles.progressText}>{`${Math.round(progress)}%`}</Animated.Text>}
+          {(fill) => <Animated.Text style={styles.progressText}>
+                        {`${Math.round(progress)}%`}
+                      </Animated.Text>
+          }
         </AnimatedCircularProgress>
 
         <View style={styles.taskWrapper}>  
@@ -546,9 +497,12 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
               {/* Overdue Tasks */}
               {sortedOverdueDates.map((dateString, index) => {
                 const tasksForThisDate = overdueTasksByDate.get(dateString);
-                const formattedDateString = new Date(dateString).toLocaleDateString(); // Format the date string as MM/DD/YYYY
-
-                return renderTasksForDate("Overdue Tasks", tasksForThisDate, index, true, true);
+                try {
+                  return renderTasksForDate("Overdue Tasks", tasksForThisDate, index, true, true);
+                } catch (error) {
+                  console.error("Error rendering task '"+tasksForThisDate.get(index)?.id+"': ", error);
+                  return;
+                }
               })}
 
           {/*Today's tasks header*/}
@@ -571,20 +525,25 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
               {/* Today's Tasks */}
               {sortedtodaysDates.map((dateString, index) => {
                 const tasksForThisDate = todaysTasksByDate.get(dateString);
-                const formattedDateString = new Date(dateString).toLocaleDateString(); // Format the date string as MM/DD/YYYY
+                // Format the date string as MM/DD/YYYY
+                const formattedDateString = new Date(dateString)
+                .toLocaleDateString();
 
-                return renderTasksForDate(`${formattedDateString}`, tasksForThisDate, index, false, true);
+                return renderTasksForDate(formattedDateString, 
+                tasksForThisDate, index, false, true);
               })}
 
-              {(futureTasksByDate.size>0)&&(<><Text style={styles.mediumTitle}>Upcoming Tasks</Text></>
-)}
+              {(futureTasksByDate.size>0)&&(<><Text style={styles.mediumTitle}>Upcoming Tasks</Text></>)}
 
               {/* Future Tasks */}
               {sortedFutureDates.map((dateString, index) => {
                 const tasksForThisDate = futureTasksByDate.get(dateString);
-                const formattedDateString = new Date(dateString).toLocaleDateString(); // Format the date string as MM/DD/YYYY
+                // Format the date string as MM/DD/YYYY
+                const formattedDateString = new Date(dateString)
+                .toLocaleDateString(); 
 
-                return renderTasksForDate(formattedDateString, tasksForThisDate, index, true, false);
+                return renderTasksForDate(formattedDateString, 
+                  tasksForThisDate, index, true, false);
               })}
 
             {/* Completed Tasks */}
@@ -593,8 +552,10 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
             )}
 
             {/* Iterate through completedTasks and display all tasks */}
+            {/*If the task exists, render it.*/}
             {completedTasks.map((item, index) => (
-              (item)&&(<TouchableOpacity key={index} onPress={null} onLongPress={() => handleDelete(item.id)}>
+              (item)&&(<TouchableOpacity key={index} onPress={null} 
+              onLongPress={() => handleDelete(item.id)}>
                 <Task
                   key={item.id}
                   id={item.id}
@@ -621,8 +582,6 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
 
       </ScrollView>
 
-      {/*Write a task*/}
-
       {/*Bottom Sheet View*/}
       <BottomSheet
         ref={sheetRef}
@@ -637,8 +596,8 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
             style={styles.bottomSheetContentContainer}
             padding={10}
           >
-            <ScrollView            >
-              <Text style={styles.sectionTitle}>Add Task</Text>
+            <ScrollView>
+              <Text style={styles.mediumTitle}>Add Task</Text>
               <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               style={styles.writeTaskWrapper}
@@ -654,6 +613,7 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
                       value={task}
                       width={'80%'}
                       onChangeText={text => setTask(text)}
+                      keyboardAppearance= {'dark'}
                       />
                       <TouchableOpacity onPress={() => handleAddTask()}>
                           <Ionicons name="ios-add-circle" color={'#301087'} size={62}/>
@@ -661,7 +621,8 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
                     </View>
                 
                     <View style={styles.roundedBox}>
-                      {/*Priority picker, each priority corresponds to a numerical value that is used to sort the tasks when displayed*/}
+                      {/*Priority picker, each priority corresponds to a numerical 
+                      value that is used to sort the tasks when displayed*/}
                       <Text style={styles.pickerLabel}>Priority:</Text>
                       <RNPickerSelect
                         style={pickerSelectStylesNoBorder}
@@ -678,7 +639,7 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
                       />
                     </View>
 
-
+                    {/*Metric type toggle*/}
                     <View style={styles.addTaskMenuRow}>
                       <Text style={styles.addTaskSubheading}>Metric Type:</Text>
                       {metricType === "boolean" && (
@@ -689,7 +650,9 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
                         metricType === 'boolean' ? styles.metricTypeBubbleSelected : {},
                       ]}
                       onPress={() => { setMetricType("boolean"); } }>
-                      <Text style={styles.selectedButtonText} color={(metricType == "boolean") ? "#D6C7A1" : "#FFF"}>True/False</Text>
+                      <Text style={styles.selectedButtonText} 
+                      color={(metricType == "boolean") 
+                      ? "#D6C7A1" : "#FFF"}>True/False</Text>
                     </TouchableOpacity><TouchableOpacity
                       style={[
                         styles.metricTypeBubble,
@@ -700,6 +663,7 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
                       </TouchableOpacity></>
                       )}
 
+                      {/*If the metric type is incremental, let user select amount and units*/}
                       {metricType === "incremental" && (
 
                       <><TouchableOpacity
@@ -708,7 +672,9 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
                       metricType === 'boolean' ? styles.metricTypeBubbleSelected : {},
                       ]}
                       onPress={() => { setMetricType("boolean"); } }>
-                      <Text style={styles.buttonText} color={(metricType == "boolean") ? "#D6C7A1" : "#FFF"}>True/False</Text>
+                      <Text style={styles.buttonText} 
+                      color={(metricType == "boolean") ? "#D6C7A1" : "#FFF"}>
+                        True/False</Text>
                       </TouchableOpacity><TouchableOpacity
                       style={[
                       styles.metricTypeBubble,
@@ -722,7 +688,8 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
 
                     <View style={styles.addTaskMenuRow}>
                       
-                      {/*If the metric type is incremental, the user will be able to set the amount and type of units.*/}
+                      {/*If the metric type is incremental, the 
+                      user will be able to set the amount and type of units.*/}
                       {metricType === "incremental" && (
                         <>
                           <View style={styles.roundedBox}>
@@ -744,15 +711,16 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
                               placeholderTextColor= {'#FFF'}
                               onChangeText={(text) => setUnits(text)}
                               value={units}
+                              keyboardAppearance= {'dark'}
                             />
                           </View>
-
-                        
-
                         </>
                       )}
 
+
+
                       <View style={styles.roundedBox}>
+                        {/*Weightage picker*/}
                         <Text style={styles.addTaskSubheading}>Weightage: </Text>
                         <RNPickerSelect
                           style={pickerSelectStyles}
@@ -768,12 +736,13 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
                           { label: '34 (Highest)', value: 34 }]}
 
                           placeholder={{ label: 'Select', value: null }}
-
                         />
                       </View>
                     
                     </View>
                   
+
+                    {/*Calendar for due date*/}
                     <View style={styles.verticalRoundedBox}>
                       
                       <Text  style= {styles.dueDateSubheading}>
@@ -808,15 +777,13 @@ const sortedFutureDates = Array.from(futureTasksByDate.keys()).sort();
             </BottomSheetView>
       </BottomSheet>
 
-
-
     </View>
     
   )}
 //}
 
-
-export default TaskScreen;
+//Export TaskScreen
+export default TasksScreen;
 // Styles
 const styles = StyleSheet.create({
   container: {
@@ -884,7 +851,6 @@ const styles = StyleSheet.create({
     width: 280,
     marginRight: 15,
     color: '#FFA25B', 
-    keyboardAppearance: 'dark',  
   },
 
   button: {
@@ -1088,10 +1054,10 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     marginLeft: 6,
     color: '#FFA25B',
-    keyboardAppearance: 'dark',
   },
 });
 
+//Styles for picker
 const pickerSelectStyles = StyleSheet.create({
   inputIOS: {
     borderWidth: 1,
@@ -1100,7 +1066,6 @@ const pickerSelectStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     color: '#FFA25B',
-    keyboardAppearance: 'dark',
   },
   inputAndroid: {
     borderWidth: 1,
@@ -1109,7 +1074,6 @@ const pickerSelectStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     color: '#FFA25B',
-    keyboardAppearance: 'dark',
   },
 });
 
@@ -1119,13 +1083,11 @@ const pickerSelectStylesNoBorder = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     color: '#FFA25B',
-    keyboardAppearance: 'dark',
   },
   inputAndroid: {
     borderRadius: 5,
     paddingHorizontal: 10,
     paddingVertical: 5,
     color: '#FFA25B',
-    keyboardAppearance: 'dark',
   },
 });

@@ -196,7 +196,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     color: 'white',
-    placeholderTextColor: 'white',
   },
 
   rowContainer: {
